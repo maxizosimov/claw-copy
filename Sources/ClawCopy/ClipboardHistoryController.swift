@@ -14,8 +14,11 @@ final class ClipboardHistoryController {
     /// A restored password is cleared from the clipboard after this long, if still there.
     private static let restoredSecretClipboardSeconds: UInt64 = 60
 
-    /// The choices offered for keeping passwords (0 = off, the default).
-    static let passwordRetentionChoices = [0, 1, 5, 15]
+    /// The choices offered for keeping passwords: 0 = off (the default), minutes, or
+    /// `keepPasswordsLikeOtherCopies`.
+    static let passwordRetentionChoices = [0, 1, 5, 15, keepPasswordsLikeOtherCopies]
+    /// Passwords go into the normal history, unmasked and without a time limit.
+    static let keepPasswordsLikeOtherCopies = -1
 
     private(set) var history = ClipboardHistory()
     private(set) var secrets = SecretHistory(lifetime: 0)
@@ -50,18 +53,26 @@ final class ClipboardHistoryController {
     }
 
     /// How long copied passwords are kept, in minutes. 0 means passwords are never kept (and
-    /// never even read).
+    /// never even read); `keepPasswordsLikeOtherCopies` puts them in the normal history.
     var passwordRetentionMinutes: Int {
-        get { max(0, UserDefaults.standard.integer(forKey: Self.passwordMinutesKey)) }
+        get {
+            let value = UserDefaults.standard.integer(forKey: Self.passwordMinutesKey)
+            return value == Self.keepPasswordsLikeOtherCopies ? value : max(0, value)
+        }
         set {
-            UserDefaults.standard.set(max(0, newValue), forKey: Self.passwordMinutesKey)
-            secrets.lifetime = TimeInterval(passwordRetentionMinutes * 60)
-            if passwordRetentionMinutes == 0 { secrets.clear() }
+            UserDefaults.standard.set(newValue, forKey: Self.passwordMinutesKey)
+            secrets.lifetime = TimeInterval(max(0, passwordRetentionMinutes) * 60)
+            // Leaving the timed list (off, or like other copies) drops what it held.
+            if !keepsPasswordsBriefly { secrets.clear() }
             secrets.purgeExpired(at: Date())
         }
     }
 
-    var keepsPasswords: Bool { passwordRetentionMinutes > 0 }
+    /// Passwords go to the separate, masked, timed list.
+    var keepsPasswordsBriefly: Bool { passwordRetentionMinutes > 0 }
+
+    /// Passwords go to the normal history like any other copy.
+    var keepsPasswordsLikeOtherCopies: Bool { passwordRetentionMinutes == Self.keepPasswordsLikeOtherCopies }
 
     func start() {
         guard isEnabled, pollTask == nil else { return }
@@ -119,7 +130,7 @@ final class ClipboardHistoryController {
     }
 
     private func poll() {
-        if keepsPasswords { secrets.purgeExpired(at: Date()) }
+        if keepsPasswordsBriefly { secrets.purgeExpired(at: Date()) }
         guard !shouldPause() else { return }
         let changeCount = pasteboard.changeCount
         guard changeCount != lastChangeCount else { return }
@@ -138,9 +149,13 @@ final class ClipboardHistoryController {
             guard ClipboardRecordPolicy.isRecordable(text, copyPolicy: copyPolicy), let text else { return }
             history.record(text)
         case .secret:
-            guard keepsPasswords else { return }
+            guard keepsPasswordsBriefly || keepsPasswordsLikeOtherCopies else { return }
             let text = pasteboard.string(forType: .string)
             guard ClipboardRecordPolicy.isRecordable(text, copyPolicy: copyPolicy), let text else { return }
+            if keepsPasswordsLikeOtherCopies {
+                history.record(text)
+                return
+            }
             // A password restored from Claw Copy itself keeps its original source name.
             let ownBundle = frontmost?.bundleIdentifier == Bundle.main.bundleIdentifier
             secrets.record(text, sourceName: ownBundle ? nil : frontmost?.localizedName, at: Date())

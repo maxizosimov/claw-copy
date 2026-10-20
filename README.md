@@ -18,7 +18,8 @@ A tiny macOS menu bar app: **select text anywhere and it's already copied.** No 
   back on the clipboard. Hover an entry to preview it beside the menu with its line breaks, or hold ⌥ Option and
   choose **Show Full Text…** to see the whole copy in a read-only window. History lives in memory only: it is never saved to disk and is gone
   when you quit. Turn it off with **Keep Clipboard History**. **Clear History** wipes it.
-- **Passwords, briefly (opt-in):** Clipboard History → **Keep Passwords** → 1, 5 or 15 minutes.
+- **Passwords (opt-in):** Clipboard History → **Keep Passwords** → 1, 5 or 15 minutes, or
+  **Like Other Copies (No Time Limit)**, which puts passwords in the normal history, unmasked.
   Passwords you copy from a password manager then appear in a separate, masked list
   (`•••••••• · 1Password · 4:59 left`, counting down live while the menu is open) and disappear when their time runs out. Click one to put
   it back on the clipboard; Claw Copy clears it from the clipboard again a minute later.
@@ -147,7 +148,8 @@ Claw Copy's job is to see what you select, so it's built to be boring and audita
   concealed or transient, or anything copied while a password manager is the active app.
   Menu titles are reduced to one plain line, and invisible formatting characters such as
   right-to-left overrides are stripped so an entry can't disguise what it really is.
-- **Passwords are opt-in, masked and short-lived.** By default, copies that password managers mark
+- **Passwords are opt-in, masked and short-lived** (unless you choose **Like Other Copies**, which
+  treats them like any other copy: shown in full in the history until cleared or quit). By default, copies that password managers mark
   as concealed (or that are made while a password manager is frontmost) are never read. With
   **Keep Passwords** on, they are kept in a separate in-memory list for the chosen time only:
   shown as a fixed-length mask (not even the length shows) with no preview or full-text view,

@@ -273,7 +273,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let passwordsMenu = NSMenu()
         for minutes in ClipboardHistoryController.passwordRetentionChoices {
-            let title = minutes == 0 ? "Off" : "For \(minutes) Minute\(minutes == 1 ? "" : "s")"
+            let title: String
+            switch minutes {
+            case 0: title = "Off"
+            case ClipboardHistoryController.keepPasswordsLikeOtherCopies: title = "Like Other Copies (No Time Limit)"
+            default: title = "For \(minutes) Minute\(minutes == 1 ? "" : "s")"
+            }
+            if minutes == ClipboardHistoryController.keepPasswordsLikeOtherCopies {
+                passwordsMenu.addItem(.separator())
+            }
             let choice = NSMenuItem(title: title, action: #selector(selectPasswordRetention(_:)), keyEquivalent: "")
             choice.target = self
             choice.tag = minutes
@@ -281,8 +289,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             passwordsMenu.addItem(choice)
         }
         passwordsMenu.addItem(.separator())
-        passwordsMenu.addItem(hintItem("Passwords are shown masked, never saved"))
-        passwordsMenu.addItem(hintItem("to disk, and removed when time runs out."))
+        passwordsMenu.addItem(hintItem("Timed: shown masked, removed when time runs out."))
+        passwordsMenu.addItem(hintItem("Like other copies: shown in full in the history."))
+        passwordsMenu.addItem(hintItem("Never saved to disk either way."))
         let passwords = NSMenuItem(title: "Keep Passwords", action: nil, keyEquivalent: "")
         passwords.submenu = passwordsMenu
         passwords.isEnabled = historyController.isEnabled
