@@ -8,7 +8,12 @@ A tiny macOS menu bar app: **select text anywhere and it's already copied.** No 
 - Select All works the same way: press Cmd+A and the selection is copied when you release Cmd.
   Pressing another key while still holding Cmd (for example Cmd+A then Cmd+V to replace
   everything) skips the copy, so paste-to-replace keeps working.
-- Lives in the menu bar (clipboard icon). It has no Dock icon and no windows.
+- **Clipboard history:** menu bar → **Clipboard History** lists the last 25 texts you copied
+  (with any app, not just Claw Copy). Click one, or press 1–9 while the menu is open, to put it
+  back on the clipboard. Hover an entry to preview it beside the menu with its line breaks, or hold ⌥ Option and
+  choose **Show Full Text…** to see the whole copy in a read-only window. History lives in memory only: it is never saved to disk and is gone
+  when you quit. Turn it off with **Keep Clipboard History**. **Clear History** wipes it.
+- Lives in the menu bar (clipboard icon). It has no Dock icon, and no windows except the history viewer.
 - Fully offline, with zero dependencies (see [Security](#security)).
 
 ## Requirements
@@ -83,6 +88,11 @@ Claw Copy's job is to see what you select, so it's built to be boring and audita
 - **Selected text is inert data.** It is copied exactly as selected, never parsed as instructions,
   executed or opened. "Prompt-injection" style text is just more text. A unit test covers this.
 - **No dependencies.** Only Apple system frameworks.
+- **Clipboard history stays in memory.** It is never written to disk (the app has no file-writing
+  code at all, which CI enforces) and never records items that password managers mark as
+  concealed or transient, or anything copied while a password manager is the active app.
+  Menu titles are reduced to one plain line, and invisible formatting characters such as
+  right-to-left overrides are stripped so an entry can't disguise what it really is.
 - **Not a keylogger.** See [Keyboard privacy](#keyboard-privacy).
 - **No background helpers.** Open at Login uses macOS's standard login item for the app itself
   (`SMAppService.mainApp`): no daemons, launch agents or helper apps. CI enforces this too.
@@ -137,6 +147,17 @@ swift test                      # unit tests for the core logic
       System Settings › General › Login Items.
 - [ ] Uncheck **Open at Login** → it disappears from Login Items. Quit and reopen → it stays unchecked.
 - [ ] Log out and back in with it checked → Claw Copy starts on its own.
+- [ ] Copy three different texts (with Cmd+C or by selecting) → menu bar → Clipboard History
+      lists them newest first. Click the third → it pastes, and moves to the top.
+- [ ] With the menu open, press 2 → the second entry is back on the clipboard.
+- [ ] Copy a long multi-line text → hover its entry → a preview beside the menu shows the first lines with line breaks.
+- [ ] The history menu shows the hint "Hold ⌥ Option to show full text", and the hover preview
+      ends with "⌥ Option-click to show the full text".
+- [ ] Hold ⌥ Option in the history menu → entries read "Show Full Text…" → click one → a window shows
+      the whole text; Copy to Clipboard puts it back on the clipboard.
+- [ ] Copy a password from 1Password / Bitwarden / Passwords → it does **not** appear in the history.
+- [ ] Clear History → the list is empty. Uncheck Keep Clipboard History → copies are no longer recorded.
+- [ ] Quit and reopen → the history is empty.
 - [ ] Menu bar icon → Quit works.
 
 ## License

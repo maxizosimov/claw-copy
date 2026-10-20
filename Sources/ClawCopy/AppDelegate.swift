@@ -6,15 +6,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let controller = CopyOnSelectController()
     private let mouseMonitor = MouseMonitor()
     private let keyboardMonitor = KeyboardMonitor()
+    private let historyController = ClipboardHistoryController()
     private var statusItem: NSStatusItem?
     private var statusMenuItem: NSMenuItem?
     private var permissionsMenuItem: NSMenuItem?
     private var openAtLoginMenuItem: NSMenuItem?
+    private let historyMenu = NSMenu()
+    private let historyViewer = HistoryTextViewer()
+    private let historyPreview = HistoryPreviewPanel()
     private var permissionTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         LoginItem.applyDefaultOnFirstLaunch()
+        setUpMainMenu()
         setUpStatusItem()
+        historyController.start()
 
         mouseMonitor.onSelectionGesture = { [weak self] in
             self?.controller.selectionGestureEnded()
@@ -36,10 +42,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         mouseMonitor.stop()
         keyboardMonitor.stop()
+        historyController.stop()
         permissionTask?.cancel()
     }
 
     // MARK: - Menu bar
+
+    /// Menu bar apps have no visible main menu, but it is what routes ⌘C / ⌘A / ⌘W to the
+    /// history viewer window.
+    private func setUpMainMenu() {
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        edit.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        let editItem = NSMenuItem()
+        editItem.submenu = edit
+        let main = NSMenu()
+        main.addItem(editItem)
+        NSApp.mainMenu = main
+    }
 
     private func setUpStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -62,6 +83,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(permissions)
 
         menu.addItem(.separator())
+        let history = NSMenuItem(title: "Clipboard History", action: nil, keyEquivalent: "")
+        history.submenu = historyMenu
+        historyMenu.delegate = self
+        menu.addItem(history)
+
+        menu.addItem(.separator())
         let openAtLogin = NSMenuItem(title: "Open at Login", action: #selector(toggleOpenAtLogin), keyEquivalent: "")
         openAtLogin.target = self
         menu.addItem(openAtLogin)
@@ -81,8 +108,109 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
+        guard menu !== historyMenu else { return }
         // The user may have changed it in System Settings › Login Items meanwhile.
         refreshOpenAtLogin()
+        rebuildHistoryMenu()
+    }
+
+    func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) {
+        guard menu === historyMenu else { return }
+        if let item, !item.isAlternate, let preview = item.representedObject as? String {
+            historyPreview.show(preview)
+        } else {
+            historyPreview.hide()
+        }
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        historyPreview.hide()
+    }
+
+    // MARK: - Clipboard history
+
+    private func rebuildHistoryMenu() {
+        historyMenu.removeAllItems()
+        let entries = historyController.history.entries
+
+        if !historyController.isEnabled {
+            historyMenu.addItem(disabledItem("History is off"))
+        } else if entries.isEmpty {
+            historyMenu.addItem(disabledItem("Nothing copied yet"))
+        } else {
+            for (index, text) in entries.enumerated() {
+                let title = HistoryMenuTitle.make(text)
+                let key = index < 9 ? String(index + 1) : ""
+
+                let item = NSMenuItem(title: title, action: #selector(restoreHistoryItem(_:)), keyEquivalent: key)
+                item.keyEquivalentModifierMask = []
+                item.target = self
+                item.tag = index
+                // Hover preview (shown beside the menu): the text with its line breaks.
+                item.representedObject = HistoryPreview.make(text)
+                historyMenu.addItem(item)
+
+                // Shown instead of the item above while ⌥ Option is held.
+                let showFull = NSMenuItem(
+                    title: "Show Full Text… \(HistoryMenuTitle.make(text, maxLength: 44))",
+                    action: #selector(showHistoryItem(_:)),
+                    keyEquivalent: key
+                )
+                showFull.keyEquivalentModifierMask = [.option]
+                showFull.isAlternate = true
+                showFull.target = self
+                showFull.tag = index
+                historyMenu.addItem(showFull)
+            }
+            historyMenu.addItem(hintItem("Hold ⌥ Option to show full text"))
+        }
+
+        historyMenu.addItem(.separator())
+        let clear = NSMenuItem(title: "Clear History", action: #selector(clearHistory), keyEquivalent: "")
+        clear.target = self
+        clear.isEnabled = !entries.isEmpty
+        historyMenu.addItem(clear)
+
+        let keep = NSMenuItem(title: "Keep Clipboard History", action: #selector(toggleHistory), keyEquivalent: "")
+        keep.target = self
+        keep.state = historyController.isEnabled ? .on : .off
+        historyMenu.addItem(keep)
+    }
+
+    /// A small, greyed-out explanatory line, like the hints in macOS's own menus.
+    private func hintItem(_ title: String) -> NSMenuItem {
+        let item = disabledItem(title)
+        item.attributedTitle = NSAttributedString(string: title, attributes: [
+            .font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize),
+            .foregroundColor: NSColor.secondaryLabelColor,
+        ])
+        return item
+    }
+
+    private func disabledItem(_ title: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        return item
+    }
+
+    @objc private func restoreHistoryItem(_ sender: NSMenuItem) {
+        historyController.restore(at: sender.tag)
+    }
+
+    @objc private func showHistoryItem(_ sender: NSMenuItem) {
+        let entries = historyController.history.entries
+        guard entries.indices.contains(sender.tag) else { return }
+        historyViewer.show(entries[sender.tag]) { [weak self] text in
+            self?.historyController.copyToClipboard(text)
+        }
+    }
+
+    @objc private func clearHistory() {
+        historyController.clear()
+    }
+
+    @objc private func toggleHistory() {
+        historyController.isEnabled.toggle()
     }
 
     private func refreshOpenAtLogin() {
