@@ -92,7 +92,7 @@ final class ShortcutsWindow: NSObject, NSWindowDelegate {
         recording = ShortcutAction.allCases[sender.tag]
         message.stringValue = ""
         onRecordingChanged?(true)
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { event in
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
             // Only the key's position and the modifiers; the event is swallowed.
             let keyCode = event.keyCode
             let flags = event.modifierFlags
