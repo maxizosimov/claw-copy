@@ -35,8 +35,21 @@ jobs:
       - name: Unit tests
         run: swift test
 
-      - name: Build and sign app bundle
-        run: ./scripts/build-app.sh
+      # Same build as the release workflow (universal, versioned, release-marked), so a broken
+      # release build is caught in the PR rather than after the merge.
+      - name: Build and sign app bundle (as a release would)
+        env:
+          VERSION: 0.0.${{ github.run_number }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          RELEASE: "1"
+          UNIVERSAL: "1"
+        run: |
+          ./scripts/build-app.sh
+          lipo -archs "build/Claw Copy.app/Contents/MacOS/ClawCopy"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" -c "Print :ClawCopyReleaseBuild" -c "Print :ClawCopyCommit" "build/Claw Copy.app/Contents/Info.plist"
+
+      - name: Package (dry run, not published)
+        run: ditto -c -k --keepParent "build/Claw Copy.app" build/Claw-Copy-dry-run.zip && ls -l build/*.zip
 
       - name: Verify the app bundle has no entitlements
         run: |
@@ -47,11 +60,11 @@ jobs:
             exit 1
           fi
 
-      - name: Verify the binary links no networking frameworks
+      - name: Verify the binary links no low-level networking or web frameworks
         run: |
           libs="$(otool -L "build/Claw Copy.app/Contents/MacOS/ClawCopy")"
           echo "$libs"
-          if echo "$libs" | grep -Ei 'Network\.framework|CFNetwork|WebKit|JavaScriptCore'; then
-            echo "Networking or web framework linked into the app" >&2
+          if echo "$libs" | grep -Ei 'Network\.framework|WebKit|JavaScriptCore'; then
+            echo "Network.framework or a web framework is linked into the app" >&2
             exit 1
           fi

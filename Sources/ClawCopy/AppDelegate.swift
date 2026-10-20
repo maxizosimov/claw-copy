@@ -13,6 +13,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var openAtLoginMenuItem: NSMenuItem?
     private let historyMenu = NSMenu()
     private let shortcutsWindow = ShortcutsWindow()
+    private let updateChecker = UpdateChecker()
+    private let updateItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let versionItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let checkNowItem = NSMenuItem(title: "Check for Updates…", action: nil, keyEquivalent: "")
+    private let autoCheckItem = NSMenuItem(title: "Check for Updates Automatically", action: nil, keyEquivalent: "")
     /// Dim lines that show the current shortcuts, so they never have to be looked up.
     private let shortcutsHintItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let modeShortcutHintItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
@@ -30,6 +35,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         historyController.start()
         setUpShortcuts()
+        updateChecker.onChange = { [weak self] in self?.refreshUpdateItems() }
+        updateChecker.start()
 
         mouseMonitor.onSelectionGesture = { [weak self] in
             self?.controller.selectionGestureEnded()
@@ -81,6 +88,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         shortcutsHintItem.isEnabled = false
         menu.addItem(shortcutsHintItem)
 
+        updateItem.action = #selector(openUpdate)
+        updateItem.target = self
+        menu.addItem(updateItem)
+
         let permissions = NSMenuItem(
             title: "Grant Accessibility Permission…",
             action: #selector(openAccessibilitySettings),
@@ -118,6 +129,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(openAtLogin)
 
         menu.addItem(.separator())
+        versionItem.isEnabled = false
+        menu.addItem(versionItem)
+        checkNowItem.action = #selector(checkForUpdatesNow)
+        checkNowItem.target = self
+        menu.addItem(checkNowItem)
+        autoCheckItem.action = #selector(toggleAutomaticUpdateChecks)
+        autoCheckItem.target = self
+        menu.addItem(autoCheckItem)
+        refreshUpdateItems()
+
+        menu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit Claw Copy", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
@@ -150,6 +172,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
         HotKeyCenter.shared.register(ShortcutSettings.all)
+    }
+
+    // MARK: - Updates
+
+    private func refreshUpdateItems() {
+        if let update = updateChecker.availableUpdate {
+            updateItem.title = "Update Available: Claw Copy \(update.version)…"
+            updateItem.isHidden = false
+        } else {
+            updateItem.isHidden = true
+        }
+        setHint(versionItem, updateChecker.versionDescription)
+        // Development builds (build-app.sh / try.sh) never check; they update with try.sh.
+        checkNowItem.isHidden = !updateChecker.isReleaseBuild
+        autoCheckItem.isHidden = !updateChecker.isReleaseBuild
+        autoCheckItem.state = updateChecker.checksAutomatically ? .on : .off
+    }
+
+    @objc private func openUpdate() {
+        updateChecker.openReleasePage()
+    }
+
+    @objc private func toggleAutomaticUpdateChecks() {
+        updateChecker.checksAutomatically.toggle()
+        refreshUpdateItems()
+    }
+
+    @objc private func checkForUpdatesNow() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let result = await self.updateChecker.check()
+            self.refreshUpdateItems()
+            let alert = NSAlert()
+            switch result {
+            case .updateAvailable(let release):
+                alert.messageText = "Claw Copy \(release.version) is available"
+                alert.informativeText = "You have \(self.updateChecker.versionDescription.lowercased()). Download the new version from its release page, quit Claw Copy and replace the app."
+                alert.addButton(withTitle: "Open Release Page")
+                alert.addButton(withTitle: "Later")
+            case .upToDate:
+                alert.messageText = "Claw Copy is up to date"
+                alert.informativeText = "\(self.updateChecker.versionDescription) is the latest version."
+            case .failed:
+                alert.messageText = "Couldn't check for updates"
+                alert.informativeText = "GitHub couldn't be reached. Try again later."
+            }
+            NSApp.activate(ignoringOtherApps: true)
+            if alert.runModal() == .alertFirstButtonReturn, case .updateAvailable = result {
+                self.updateChecker.openReleasePage()
+            }
+        }
     }
 
     private func perform(_ action: ShortcutAction) {

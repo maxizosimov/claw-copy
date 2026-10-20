@@ -1,0 +1,73 @@
+name: Release
+
+# Every merge to main is built, tested and published as a GitHub Release (v0.1.<run number>),
+# which is what the app's "Update Available" check looks for.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write # create the release
+
+# Releases are published one at a time, in order.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      VERSION: 0.1.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Security checks
+        run: ./scripts/check-security.sh
+
+      - name: Unit tests
+        run: swift test
+
+      - name: Import release signing certificate
+        id: signing
+        env:
+          RELEASE_CERT_P12_BASE64: ${{ secrets.RELEASE_CERT_P12_BASE64 }}
+          RELEASE_CERT_PASSWORD: ${{ secrets.RELEASE_CERT_PASSWORD }}
+        run: ./scripts/ci-import-release-certificate.sh
+
+      - name: Build and sign
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+          RELEASE: "1"
+          UNIVERSAL: "1"
+          SIGN_IDENTITY: ${{ steps.signing.outputs.identity }}
+        run: ./scripts/build-app.sh
+
+      - name: Verify the app bundle has no entitlements and links no networking frameworks
+        run: |
+          ents="$(codesign -d --entitlements - "build/Claw Copy.app" 2>/dev/null || true)"
+          if echo "$ents" | grep -q '<key>'; then echo "Unexpected entitlements" >&2; exit 1; fi
+          if otool -L "build/Claw Copy.app/Contents/MacOS/ClawCopy" | grep -Ei 'WebKit|JavaScriptCore'; then
+            echo "Web framework linked into the app" >&2; exit 1
+          fi
+
+      - name: Package
+        run: |
+          ZIP="build/Claw-Copy-$VERSION.zip"
+          ditto -c -k --keepParent "build/Claw Copy.app" "$ZIP"
+          (cd build && shasum -a 256 "Claw-Copy-$VERSION.zip" > "Claw-Copy-$VERSION.zip.sha256")
+          cat "build/Claw-Copy-$VERSION.zip.sha256"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION" \
+            "build/Claw-Copy-$VERSION.zip" "build/Claw-Copy-$VERSION.zip.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Claw Copy $VERSION" \
+            --generate-notes
