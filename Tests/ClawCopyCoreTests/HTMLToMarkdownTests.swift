@@ -104,6 +104,15 @@ final class HTMLToMarkdownTests: XCTestCase {
         XCTAssertEqual(md(String(repeating: "<div><span>", count: 20_000) + "x"), "x")
     }
 
+    func testUnterminatedTagsStayLinearTime() {
+        // Each unclosed attribute quote used to make the tokenizer rescan to the end of input.
+        let hostile = String(repeating: "<a x=\"", count: 150_000)
+        let start = Date()
+        XCTAssertNotNil(md(hostile))
+        XCTAssertLessThan(Date().timeIntervalSince(start), 5)
+        XCTAssertEqual(md("<p>ok</p><a href=\"x"), "ok\n\n\\<a href=\"x")
+    }
+
     func testOversizedInputIsNotConverted() {
         XCTAssertNil(md(String(repeating: "a", count: HTMLToMarkdown.maxInputBytes + 1)))
     }

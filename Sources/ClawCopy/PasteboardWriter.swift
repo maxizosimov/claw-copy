@@ -1,4 +1,5 @@
 import AppKit
+import ClawCopyCore
 
 /// Reads and writes the general pasteboard.
 @MainActor
@@ -14,8 +15,11 @@ final class PasteboardWriter {
 
     var types: [String] { (pasteboard.types ?? []).map(\.rawValue) }
 
+    /// The clipboard's text, unless an app marked it concealed or transient (password managers):
+    /// that is never read.
     func currentString() -> String? {
-        pasteboard.string(forType: .string)
+        guard !types.contains(where: ClipboardRecordPolicy.privateTypes.contains) else { return nil }
+        return pasteboard.string(forType: .string)
     }
 
     func currentHTML() -> String? {

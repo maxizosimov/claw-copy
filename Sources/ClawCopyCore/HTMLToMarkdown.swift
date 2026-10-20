@@ -65,14 +65,23 @@ enum HTMLTokenizer {
                 i = find(s, ">", from: i).map { $0 + 1 } ?? s.count
                 continue
             }
-            guard let parsed = parseTag(s, i) else {
+            let token: HTMLToken
+            switch parseTag(s, i) {
+            case .notATag:
                 text.append(s[i]) // a literal "<"
                 i += 1
                 continue
+            case .unterminated:
+                // A tag that runs off the end: the rest is text. Stopping here (instead of
+                // retrying at every later "<") keeps hostile input linear-time.
+                text.append(contentsOf: s[i...])
+                i = s.count
+                continue
+            case let .tag(parsed, next):
+                token = parsed
+                i = next
             }
-            let (token, next) = parsed
             flushText()
-            i = next
             if case let .start(name, _, selfClosing) = token, skippedElements.contains(name) {
                 if !selfClosing {
                     i = find(s, "</" + name, from: i, caseInsensitive: true)
@@ -88,29 +97,35 @@ enum HTMLTokenizer {
         return tokens
     }
 
-    private static func parseTag(_ s: [Unicode.Scalar], _ start: Int) -> (HTMLToken, Int)? {
+    private enum TagParse {
+        case tag(HTMLToken, Int)
+        case notATag
+        case unterminated
+    }
+
+    private static func parseTag(_ s: [Unicode.Scalar], _ start: Int) -> TagParse {
         var i = start + 1
         var isEnd = false
         if i < s.count, s[i] == "/" {
             isEnd = true
             i += 1
         }
-        guard i < s.count, isASCIILetter(s[i]) else { return nil }
+        guard i < s.count, isASCIILetter(s[i]) else { return .notATag }
         var name = ""
         while i < s.count, isNameCharacter(s[i]) {
             name.unicodeScalars.append(lowercased(s[i]))
             i += 1
         }
         if isEnd {
-            guard let close = find(s, ">", from: i) else { return nil }
-            return (.end(name: name), close + 1)
+            guard let close = find(s, ">", from: i) else { return .unterminated }
+            return .tag(.end(name: name), close + 1)
         }
 
         var attributes: [String: String] = [:]
         var selfClosing = false
         while true {
             while i < s.count, isSpace(s[i]) { i += 1 }
-            guard i < s.count else { return nil }
+            guard i < s.count else { return .unterminated }
             if s[i] == ">" {
                 i += 1
                 break
@@ -134,7 +149,7 @@ enum HTMLTokenizer {
             if i < s.count, s[i] == "=" {
                 i += 1
                 while i < s.count, isSpace(s[i]) { i += 1 }
-                guard i < s.count else { return nil }
+                guard i < s.count else { return .unterminated }
                 var raw = String.UnicodeScalarView()
                 if s[i] == "\"" || s[i] == "'" {
                     let quote = s[i]
@@ -143,7 +158,7 @@ enum HTMLTokenizer {
                         raw.append(s[i])
                         i += 1
                     }
-                    guard i < s.count else { return nil }
+                    guard i < s.count else { return .unterminated }
                     i += 1
                 } else {
                     while i < s.count, !isSpace(s[i]), s[i] != ">" {
@@ -157,7 +172,7 @@ enum HTMLTokenizer {
                 attributes[attributeName] = decodeEntities(value)
             }
         }
-        return (.start(name: name, attributes: attributes, selfClosing: selfClosing), i)
+        return .tag(.start(name: name, attributes: attributes, selfClosing: selfClosing), i)
     }
 
     // MARK: Entities
