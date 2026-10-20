@@ -18,6 +18,10 @@ A tiny macOS menu bar app: **select text anywhere and it's already copied.** No 
   back on the clipboard. Hover an entry to preview it beside the menu with its line breaks, or hold ⌥ Option and
   choose **Show Full Text…** to see the whole copy in a read-only window. History lives in memory only: it is never saved to disk and is gone
   when you quit. Turn it off with **Keep Clipboard History**. **Clear History** wipes it.
+- **Keyboard shortcuts:** **⌃⌥⌘C** opens the Claw Copy menu, **⌃⌥⌘V** shows Clipboard History at
+  the pointer (then ↑ ↓ or 1–9, and Return), **⌃⌥⌘M** switches Copy Mode. Change or remove them in
+  menu bar → **Keyboard Shortcuts…**: click a shortcut and press the new keys (⌫ removes it,
+  ⎋ cancels, **Reset to Defaults** restores them).
 - Lives in the menu bar (clipboard icon). It has no Dock icon, and no windows except the history viewer.
 - Fully offline, with zero dependencies (see [Security](#security)).
 
@@ -143,6 +147,10 @@ Claw Copy's job is to see what you select, so it's built to be boring and audita
   concealed or transient, or anything copied while a password manager is the active app.
   Menu titles are reduced to one plain line, and invisible formatting characters such as
   right-to-left overrides are stripped so an entry can't disguise what it really is.
+- **Shortcuts don't widen what the app sees.** Global shortcuts use macOS's hot key API, which
+  delivers only the exact registered key combinations. The shortcut recorder listens only inside
+  its own window while you record, and reads the key's position and modifiers, never characters.
+  CI fails if a system-wide event monitor appears anywhere but the two documented monitors.
 - **Not a keylogger.** See [Keyboard privacy](#keyboard-privacy).
 - **No background helpers.** Open at Login uses macOS's standard login item for the app itself
   (`SMAppService.mainApp`): no daemons, launch agents or helper apps. CI enforces this too.
@@ -218,6 +226,10 @@ swift test                      # unit tests for the core logic
 - [ ] Markdown mode → Clipboard History shows the Markdown version only, not the plain copy too.
 - [ ] Copy Mode → Plain Text → the icon goes back to the clipboard, and copies are plain again.
 - [ ] Quit and reopen → the chosen Copy Mode is remembered.
+- [ ] ⌃⌥⌘C opens the menu; ⌃⌥⌘V shows Clipboard History at the pointer → ↓ and Return restores an
+      entry, and the app you were in is still in front for pasting; ⌃⌥⌘M switches Copy Mode (icon changes).
+- [ ] Keyboard Shortcuts… → click Show Clipboard History → press ⌥⇧H → the shortcut changes and works.
+      Pressing ⌘Q or a plain letter shows a message instead. ⌫ sets it to None; Reset to Defaults restores it.
 - [ ] Menu bar icon → Quit works.
 
 ## License
