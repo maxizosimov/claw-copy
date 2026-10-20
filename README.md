@@ -38,7 +38,10 @@ menu shows "Copy on select is active" once access is granted.
 > `./scripts/create-signing-identity.sh --remove` deletes the certificate, its key and its trust setting.
 > You can also sign with your own identity: `SIGN_IDENTITY="Apple Development: you@example.com" ./scripts/build-app.sh`.
 
-To start it at login, add `Claw Copy.app` under System Settings › General › Login Items.
+**Open at Login** is on by default: the first launch adds Claw Copy to System Settings › General ›
+Login Items. Toggle it in the menu bar menu (**Open at Login**). Once you turn it off it stays off.
+Login Items records the app at its current location, so move it to `/Applications` first if you
+don't want it running from `build/`.
 
 ## How it works
 
@@ -66,6 +69,8 @@ Claw Copy's job is to see what you select, so it's built to be boring and audita
   executed or opened. "Prompt-injection" style text is just more text. A unit test covers this.
 - **No dependencies.** Only Apple system frameworks.
 - **Not a keylogger.** See [Keyboard privacy](#keyboard-privacy).
+- **No background helpers.** Open at Login uses macOS's standard login item for the app itself
+  (`SMAppService.mainApp`): no daemons, launch agents or helper apps. CI enforces this too.
 - **Hardened runtime, no entitlements.**
 - **Enforced in CI.** `scripts/check-security.sh` fails the build if networking, process/script
   execution, dynamic loading, web views, remote URL literals or package dependencies appear.
@@ -113,6 +118,10 @@ swift test                      # unit tests for the core logic
 - [ ] A password field (e.g. a web login form): select the dots → the clipboard is **unchanged**.
 - [ ] Finder: double-click a file to open it → the clipboard is **unchanged**.
 - [ ] A single plain click anywhere → the clipboard is **unchanged**.
+- [ ] First launch: menu bar → **Open at Login** is checked, and Claw Copy appears in
+      System Settings › General › Login Items.
+- [ ] Uncheck **Open at Login** → it disappears from Login Items. Quit and reopen → it stays unchecked.
+- [ ] Log out and back in with it checked → Claw Copy starts on its own.
 - [ ] Menu bar icon → Quit works.
 
 ## License
