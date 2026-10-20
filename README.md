@@ -18,6 +18,10 @@ A tiny macOS menu bar app: **select text anywhere and it's already copied.** No 
   back on the clipboard. Hover an entry to preview it beside the menu with its line breaks, or hold ⌥ Option and
   choose **Show Full Text…** to see the whole copy in a read-only window. History lives in memory only: it is never saved to disk and is gone
   when you quit. Turn it off with **Keep Clipboard History**. **Clear History** wipes it.
+- **Passwords, briefly (opt-in):** Clipboard History → **Keep Passwords** → 1, 5 or 15 minutes.
+  Passwords you copy from a password manager then appear in a separate, masked list
+  (`•••••••• · 1Password · 4 min left`) and disappear when their time runs out. Click one to put
+  it back on the clipboard; Claw Copy clears it from the clipboard again a minute later.
 - Lives in the menu bar (clipboard icon). It has no Dock icon, and no windows except the history viewer.
 - Fully offline, with zero dependencies (see [Security](#security)).
 
@@ -143,6 +147,15 @@ Claw Copy's job is to see what you select, so it's built to be boring and audita
   concealed or transient, or anything copied while a password manager is the active app.
   Menu titles are reduced to one plain line, and invisible formatting characters such as
   right-to-left overrides are stripped so an entry can't disguise what it really is.
+- **Passwords are opt-in, masked and short-lived.** By default, copies that password managers mark
+  as concealed (or that are made while a password manager is frontmost) are never read. With
+  **Keep Passwords** on, they are kept in a separate in-memory list for the chosen time only:
+  shown as a fixed-length mask (not even the length shows) with no preview or full-text view,
+  never added to the normal history, and removed on expiry, Clear History, turning it off, or
+  quit. A restored password is marked concealed again so other clipboard tools skip it, and is
+  cleared from the clipboard after a minute if it's still there. (Swift can't wipe a string's
+  memory, so expired passwords may linger in freed memory until it's reused; they are never
+  written to disk.)
 - **Not a keylogger.** See [Keyboard privacy](#keyboard-privacy).
 - **No background helpers.** Open at Login uses macOS's standard login item for the app itself
   (`SMAppService.mainApp`): no daemons, launch agents or helper apps. CI enforces this too.
@@ -208,6 +221,10 @@ swift test                      # unit tests for the core logic
 - [ ] Copy a password from 1Password / Bitwarden / Passwords → it does **not** appear in the history.
 - [ ] Clear History → the list is empty. Uncheck Keep Clipboard History → copies are no longer recorded.
 - [ ] Quit and reopen → the history is empty.
+- [ ] Keep Passwords → Off (default): copy a password in 1Password / Passwords → nothing appears.
+- [ ] Keep Passwords → For 1 Minute: copy a password → it appears masked under "Passwords" with
+      the app name and time left; no preview on hover; it is gone after a minute.
+- [ ] Click a kept password → paste works → a minute later the clipboard is empty.
 - [ ] Copy Mode → Markdown → the menu bar icon shows **#** and the status line says "· Markdown".
 - [ ] Markdown mode, Chrome / Safari: select a section of a docs page with a heading, a list and a
       link → paste into TextEdit (Format › Make Plain Text) → you get `#`, `- ` and `[text](url)`.

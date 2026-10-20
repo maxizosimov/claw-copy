@@ -8,6 +8,8 @@ final class PasteboardWriter {
     private static let sourceType = NSPasteboard.PasteboardType("org.nspasteboard.source")
     /// The de-facto Markdown pasteboard type, alongside plain text.
     private static let markdownType = NSPasteboard.PasteboardType("net.daringfireball.markdown")
+    /// Tells clipboard managers (including Claw Copy's normal history) that this is a secret.
+    private static let concealedType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
 
     private let pasteboard = NSPasteboard.general
 
@@ -37,6 +39,14 @@ final class PasteboardWriter {
         pasteboard.clearContents()
         pasteboard.setString(markdown, forType: .string)
         pasteboard.setString(markdown, forType: Self.markdownType)
+        markAsOurs()
+    }
+
+    /// Writes a password, marked concealed so clipboard managers don't keep it.
+    func writeConcealed(_ secret: String) {
+        pasteboard.clearContents()
+        pasteboard.setString(secret, forType: .string)
+        pasteboard.setString("", forType: Self.concealedType)
         markAsOurs()
     }
 

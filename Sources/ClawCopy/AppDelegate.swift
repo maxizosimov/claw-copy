@@ -168,10 +168,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func rebuildHistoryMenu() {
         historyMenu.removeAllItems()
         let entries = historyController.history.entries
+        let now = Date()
+        historyController.purgeExpiredSecrets()
+        let secrets = historyController.secrets
+        let secretEntries = secrets.entries
 
         if !historyController.isEnabled {
             historyMenu.addItem(disabledItem("History is off"))
-        } else if entries.isEmpty {
+        } else if entries.isEmpty, secretEntries.isEmpty {
             historyMenu.addItem(disabledItem("Nothing copied yet"))
         } else {
             for (index, text) in entries.enumerated() {
@@ -198,19 +202,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 showFull.tag = index
                 historyMenu.addItem(showFull)
             }
-            historyMenu.addItem(hintItem("Hold ⌥ Option to show full text"))
+            if !entries.isEmpty {
+                historyMenu.addItem(hintItem("Hold ⌥ Option to show full text"))
+            }
+        }
+
+        if historyController.isEnabled, !secretEntries.isEmpty {
+            historyMenu.addItem(.separator())
+            historyMenu.addItem(hintItem("Passwords (hidden, kept briefly)"))
+            for entry in secretEntries {
+                // Masked: no preview, no full-text view, no number key.
+                let item = NSMenuItem(
+                    title: secrets.menuTitle(for: entry, at: now),
+                    action: #selector(restoreSecret(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.representedObject = SecretRef(entry: entry)
+                historyMenu.addItem(item)
+            }
         }
 
         historyMenu.addItem(.separator())
         let clear = NSMenuItem(title: "Clear History", action: #selector(clearHistory), keyEquivalent: "")
         clear.target = self
-        clear.isEnabled = !entries.isEmpty
+        clear.isEnabled = !entries.isEmpty || !secretEntries.isEmpty
         historyMenu.addItem(clear)
 
         let keep = NSMenuItem(title: "Keep Clipboard History", action: #selector(toggleHistory), keyEquivalent: "")
         keep.target = self
         keep.state = historyController.isEnabled ? .on : .off
         historyMenu.addItem(keep)
+
+        let passwordsMenu = NSMenu()
+        for minutes in ClipboardHistoryController.passwordRetentionChoices {
+            let title = minutes == 0 ? "Off" : "For \(minutes) Minute\(minutes == 1 ? "" : "s")"
+            let choice = NSMenuItem(title: title, action: #selector(selectPasswordRetention(_:)), keyEquivalent: "")
+            choice.target = self
+            choice.tag = minutes
+            choice.state = historyController.passwordRetentionMinutes == minutes ? .on : .off
+            passwordsMenu.addItem(choice)
+        }
+        passwordsMenu.addItem(.separator())
+        passwordsMenu.addItem(hintItem("Passwords are shown masked, never saved"))
+        passwordsMenu.addItem(hintItem("to disk, and removed when time runs out."))
+        let passwords = NSMenuItem(title: "Keep Passwords", action: nil, keyEquivalent: "")
+        passwords.submenu = passwordsMenu
+        passwords.isEnabled = historyController.isEnabled
+        historyMenu.addItem(passwords)
+    }
+
+    /// Identifies a password entry by value (not position), so an entry that expired while the
+    /// menu was open can't shift the list and restore the wrong password.
+    private struct SecretRef {
+        let entry: SecretHistory.Entry
+    }
+
+    @objc private func restoreSecret(_ sender: NSMenuItem) {
+        guard let ref = sender.representedObject as? SecretRef else { return }
+        historyController.restoreSecret(ref.entry)
+    }
+
+    @objc private func selectPasswordRetention(_ sender: NSMenuItem) {
+        historyController.passwordRetentionMinutes = sender.tag
     }
 
     /// A small, greyed-out explanatory line, like the hints in macOS's own menus.
