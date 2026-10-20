@@ -20,7 +20,7 @@ A tiny macOS menu bar app: **select text anywhere and it's already copied.** No 
   when you quit. Turn it off with **Keep Clipboard History**. **Clear History** wipes it.
 - **Passwords, briefly (opt-in):** Clipboard History → **Keep Passwords** → 1, 5 or 15 minutes.
   Passwords you copy from a password manager then appear in a separate, masked list
-  (`•••••••• · 1Password · 4 min left`) and disappear when their time runs out. Click one to put
+  (`•••••••• · 1Password · 4:59 left`, counting down live while the menu is open) and disappear when their time runs out. Click one to put
   it back on the clipboard; Claw Copy clears it from the clipboard again a minute later.
 - Lives in the menu bar (clipboard icon). It has no Dock icon, and no windows except the history viewer.
 - Fully offline, with zero dependencies (see [Security](#security)).
@@ -223,7 +223,7 @@ swift test                      # unit tests for the core logic
 - [ ] Quit and reopen → the history is empty.
 - [ ] Keep Passwords → Off (default): copy a password in 1Password / Passwords → nothing appears.
 - [ ] Keep Passwords → For 1 Minute: copy a password → it appears masked under "Passwords" with
-      the app name and time left; no preview on hover; it is gone after a minute.
+      the app name and a live countdown; no preview on hover; it turns "expired" and is gone after a minute.
 - [ ] Click a kept password → paste works → a minute later the clipboard is empty.
 - [ ] Copy Mode → Markdown → the menu bar icon shows **#** and the status line says "· Markdown".
 - [ ] Markdown mode, Chrome / Safari: select a section of a docs page with a heading, a list and a

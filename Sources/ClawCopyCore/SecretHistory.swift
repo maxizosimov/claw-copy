@@ -52,11 +52,11 @@ public struct SecretHistory: Sendable {
         max(0, Int((lifetime - now.timeIntervalSince(entry.copiedAt)).rounded(.up)))
     }
 
-    /// e.g. "•••••••• · 1Password · 4 min left"
+    /// e.g. "•••••••• · 1Password · 4:59 left", or "… · expired" once its time is up.
     public func menuTitle(for entry: Entry, at now: Date) -> String {
         let seconds = secondsLeft(for: entry, at: now)
-        let left = seconds >= 60 ? "\((seconds + 59) / 60) min left" : "\(seconds) s left"
         let source = entry.sourceName.map { " · " + HistoryMenuTitle.make($0, maxLength: 30) } ?? ""
+        let left = seconds > 0 ? String(format: "%d:%02d left", seconds / 60, seconds % 60) : "expired"
         return Self.mask + source + " · " + left
     }
 }

@@ -39,9 +39,10 @@ final class SecretHistoryTests: XCTestCase {
         secrets.record("correct horse battery staple", sourceName: "1Password", at: t0)
         let entry = secrets.entries[0]
         let title = secrets.menuTitle(for: entry, at: t0.addingTimeInterval(30))
-        XCTAssertEqual(title, "•••••••• · 1Password · 5 min left")
+        XCTAssertEqual(title, "•••••••• · 1Password · 4:30 left")
         XCTAssertFalse(title.contains("horse"))
-        XCTAssertEqual(secrets.menuTitle(for: entry, at: t0.addingTimeInterval(290)), "•••••••• · 1Password · 10 s left")
+        XCTAssertEqual(secrets.menuTitle(for: entry, at: t0.addingTimeInterval(290.5)), "•••••••• · 1Password · 0:10 left")
+        XCTAssertEqual(secrets.menuTitle(for: entry, at: t0.addingTimeInterval(300)), "•••••••• · 1Password · expired")
     }
 
     func testMaskDoesNotRevealLength() {

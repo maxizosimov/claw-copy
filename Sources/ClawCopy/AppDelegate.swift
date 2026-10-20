@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let modeMenu = NSMenu()
     private let historyViewer = HistoryTextViewer()
     private let historyPreview = HistoryPreviewPanel()
+    /// The password items in the open history menu, ticked down every second while it is open.
+    private var secretMenuItems: [(item: NSMenuItem, entry: SecretHistory.Entry)] = []
+    private var secretCountdown: Task<Void, Never>?
     private var permissionTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -143,7 +146,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
-        guard menu !== historyMenu else { return }
+        if menu === historyMenu {
+            startSecretCountdown()
+            return
+        }
         // The user may have changed it in System Settings › Login Items meanwhile.
         refreshOpenAtLogin()
         rebuildHistoryMenu()
@@ -161,6 +167,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuDidClose(_ menu: NSMenu) {
         historyPreview.hide()
+        if menu === historyMenu {
+            secretCountdown?.cancel()
+            secretCountdown = nil
+        }
+    }
+
+    // MARK: - Password countdown
+
+    private func startSecretCountdown() {
+        secretCountdown?.cancel()
+        guard !secretMenuItems.isEmpty else { return }
+        secretCountdown = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                self?.updateSecretTitles()
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+        }
+    }
+
+    private func updateSecretTitles() {
+        let now = Date()
+        let secrets = historyController.secrets
+        for (item, entry) in secretMenuItems {
+            item.title = secrets.menuTitle(for: entry, at: now)
+            if secrets.secondsLeft(for: entry, at: now) == 0 {
+                item.action = nil
+                item.isEnabled = false
+            }
+        }
     }
 
     // MARK: - Clipboard history
@@ -172,6 +207,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         historyController.purgeExpiredSecrets()
         let secrets = historyController.secrets
         let secretEntries = secrets.entries
+        secretMenuItems = []
 
         if !historyController.isEnabled {
             historyMenu.addItem(disabledItem("History is off"))
@@ -220,6 +256,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 item.target = self
                 item.representedObject = SecretRef(entry: entry)
                 historyMenu.addItem(item)
+                secretMenuItems.append((item, entry))
             }
         }
 
