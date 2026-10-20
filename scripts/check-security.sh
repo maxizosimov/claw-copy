@@ -44,6 +44,11 @@ if [ -n "$smfiles" ]; then
   fail "ServiceManagement may only be used in Sources/ClawCopy/LoginItem.swift, found in: $smfiles"
 fi
 
+# No persistence of clipboard contents: the app writes no files at all.
+if grep -rnE 'FileManager|FileHandle|\.write\(to|\.write\(toFile|writeToFile|writeToURL|createFile|NSKeyedArchiver|fopen\(|CoreData|NSPersistentContainer|import SQLite|sqlite3_' Sources; then
+  fail "file-writing or persistence API found above (clipboard history must stay in memory)"
+fi
+
 # Zero third-party dependencies.
 if grep -nE '\.package\(' Package.swift; then
   fail "third-party package dependency found"

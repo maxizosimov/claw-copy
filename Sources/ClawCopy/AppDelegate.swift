@@ -6,15 +6,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let controller = CopyOnSelectController()
     private let mouseMonitor = MouseMonitor()
     private let keyboardMonitor = KeyboardMonitor()
+    private let historyController = ClipboardHistoryController()
     private var statusItem: NSStatusItem?
     private var statusMenuItem: NSMenuItem?
     private var permissionsMenuItem: NSMenuItem?
     private var openAtLoginMenuItem: NSMenuItem?
+    private let historyMenu = NSMenu()
     private var permissionTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         LoginItem.applyDefaultOnFirstLaunch()
         setUpStatusItem()
+        historyController.start()
 
         mouseMonitor.onSelectionGesture = { [weak self] in
             self?.controller.selectionGestureEnded()
@@ -36,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         mouseMonitor.stop()
         keyboardMonitor.stop()
+        historyController.stop()
         permissionTask?.cancel()
     }
 
@@ -62,6 +66,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(permissions)
 
         menu.addItem(.separator())
+        let history = NSMenuItem(title: "Clipboard History", action: nil, keyEquivalent: "")
+        history.submenu = historyMenu
+        menu.addItem(history)
+
+        menu.addItem(.separator())
         let openAtLogin = NSMenuItem(title: "Open at Login", action: #selector(toggleOpenAtLogin), keyEquivalent: "")
         openAtLogin.target = self
         menu.addItem(openAtLogin)
@@ -83,6 +92,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         // The user may have changed it in System Settings › Login Items meanwhile.
         refreshOpenAtLogin()
+        rebuildHistoryMenu()
+    }
+
+    // MARK: - Clipboard history
+
+    private func rebuildHistoryMenu() {
+        historyMenu.removeAllItems()
+        let entries = historyController.history.entries
+
+        if !historyController.isEnabled {
+            historyMenu.addItem(disabledItem("History is off"))
+        } else if entries.isEmpty {
+            historyMenu.addItem(disabledItem("Nothing copied yet"))
+        } else {
+            for (index, text) in entries.enumerated() {
+                let item = NSMenuItem(
+                    title: HistoryMenuTitle.make(text),
+                    action: #selector(restoreHistoryItem(_:)),
+                    keyEquivalent: index < 9 ? String(index + 1) : ""
+                )
+                item.keyEquivalentModifierMask = []
+                item.target = self
+                item.tag = index
+                item.toolTip = HistoryMenuTitle.make(text, maxLength: 300)
+                historyMenu.addItem(item)
+            }
+        }
+
+        historyMenu.addItem(.separator())
+        let clear = NSMenuItem(title: "Clear History", action: #selector(clearHistory), keyEquivalent: "")
+        clear.target = self
+        clear.isEnabled = !entries.isEmpty
+        historyMenu.addItem(clear)
+
+        let keep = NSMenuItem(title: "Keep Clipboard History", action: #selector(toggleHistory), keyEquivalent: "")
+        keep.target = self
+        keep.state = historyController.isEnabled ? .on : .off
+        historyMenu.addItem(keep)
+    }
+
+    private func disabledItem(_ title: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        return item
+    }
+
+    @objc private func restoreHistoryItem(_ sender: NSMenuItem) {
+        historyController.restore(at: sender.tag)
+    }
+
+    @objc private func clearHistory() {
+        historyController.clear()
+    }
+
+    @objc private func toggleHistory() {
+        historyController.isEnabled.toggle()
     }
 
     private func refreshOpenAtLogin() {
