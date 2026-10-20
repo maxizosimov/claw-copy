@@ -96,7 +96,7 @@ final class HistoryPreviewTests: XCTestCase {
         let preview = HistoryPreview.make(text, maxLines: 3)
         XCTAssertTrue(preview.hasPrefix("line 1\nline 2\nline 3\n…"))
         XCTAssertFalse(preview.contains("line 4"))
-        XCTAssertTrue(preview.contains("Show Full Text"))
+        XCTAssertTrue(preview.hasSuffix("(\(text.count) characters in total)"))
     }
 
     func testLongTextIsCutByCharacters() {

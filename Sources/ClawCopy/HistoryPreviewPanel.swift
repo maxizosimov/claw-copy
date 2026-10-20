@@ -11,6 +11,8 @@ final class HistoryPreviewPanel {
 
     private let panel: NSPanel
     private let label = NSTextField(wrappingLabelWithString: "")
+    private let footer = NSTextField(labelWithString: "⌥ Option-click to show the full text")
+    private static let footerGap: CGFloat = 6
     private var pending: Task<Void, Never>?
 
     init() {
@@ -41,6 +43,10 @@ final class HistoryPreviewPanel {
         label.preferredMaxLayoutWidth = Self.maxTextWidth
         label.isSelectable = false
         background.addSubview(label)
+
+        footer.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        footer.textColor = .secondaryLabelColor
+        background.addSubview(footer)
     }
 
     /// Shows `text` (already a sanitized preview) after a short hover delay.
@@ -62,9 +68,17 @@ final class HistoryPreviewPanel {
     private func present(_ text: String) {
         label.stringValue = text
         let textSize = label.fittingSize
-        let width = min(textSize.width, Self.maxTextWidth) + Self.padding * 2
-        let height = textSize.height + Self.padding * 2
-        label.frame = NSRect(x: Self.padding, y: Self.padding, width: width - Self.padding * 2, height: textSize.height)
+        let footerSize = footer.fittingSize
+        let contentWidth = min(max(textSize.width, footerSize.width), Self.maxTextWidth)
+        let width = contentWidth + Self.padding * 2
+        let height = textSize.height + Self.footerGap + footerSize.height + Self.padding * 2
+        footer.frame = NSRect(x: Self.padding, y: Self.padding, width: contentWidth, height: footerSize.height)
+        label.frame = NSRect(
+            x: Self.padding,
+            y: Self.padding + footerSize.height + Self.footerGap,
+            width: contentWidth,
+            height: textSize.height
+        )
 
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main

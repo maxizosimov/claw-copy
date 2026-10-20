@@ -129,6 +129,6 @@ public enum HistoryPreview {
         }
         guard truncated else { return preview }
         let total = text.count.formatted(.number)
-        return preview + "\n…\n(\(total) characters in total. Hold ⌥ Option and choose Show Full Text… to see all of it.)"
+        return preview + "\n…\n(\(total) characters in total)"
     }
 }

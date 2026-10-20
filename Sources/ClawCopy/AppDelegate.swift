@@ -162,6 +162,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 showFull.tag = index
                 historyMenu.addItem(showFull)
             }
+            historyMenu.addItem(hintItem("Hold ⌥ Option to show full text"))
         }
 
         historyMenu.addItem(.separator())
@@ -174,6 +175,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         keep.target = self
         keep.state = historyController.isEnabled ? .on : .off
         historyMenu.addItem(keep)
+    }
+
+    /// A small, greyed-out explanatory line, like the hints in macOS's own menus.
+    private func hintItem(_ title: String) -> NSMenuItem {
+        let item = disabledItem(title)
+        item.attributedTitle = NSAttributedString(string: title, attributes: [
+            .font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize),
+            .foregroundColor: NSColor.secondaryLabelColor,
+        ])
+        return item
     }
 
     private func disabledItem(_ title: String) -> NSMenuItem {

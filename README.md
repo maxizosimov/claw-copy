@@ -151,6 +151,8 @@ swift test                      # unit tests for the core logic
       lists them newest first. Click the third → it pastes, and moves to the top.
 - [ ] With the menu open, press 2 → the second entry is back on the clipboard.
 - [ ] Copy a long multi-line text → hover its entry → a preview beside the menu shows the first lines with line breaks.
+- [ ] The history menu shows the hint "Hold ⌥ Option to show full text", and the hover preview
+      ends with "⌥ Option-click to show the full text".
 - [ ] Hold ⌥ Option in the history menu → entries read "Show Full Text…" → click one → a window shows
       the whole text; Copy to Clipboard puts it back on the clipboard.
 - [ ] Copy a password from 1Password / Bitwarden / Passwords → it does **not** appear in the history.
