@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, edited]
 
 # Read-only token; the workflow never needs to write to the repository.
 permissions:
@@ -15,6 +16,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  attribution:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: No AI-tool attribution in commits or PR text
+        env:
+          # Passed as env vars so untrusted PR text is never interpolated into the shell.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: ./scripts/check-attribution.sh "$BASE_SHA" "$HEAD_SHA"
+
   build-and-test:
     runs-on: macos-15
     timeout-minutes: 20
