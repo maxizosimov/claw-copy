@@ -53,6 +53,46 @@ Login Items. Toggle it in the menu bar menu (**Open at Login**). Once you turn i
 Login Items records the app at its current location, so move it to `/Applications` first if you
 don't want it running from `build/`.
 
+## Try the two modes
+
+Select this example where it's shown formatted (on GitHub, in a browser or a chat app), then paste
+it into Terminal or a plain-text editor:
+
+> ### Release checklist
+>
+> Ship **version 1.2** after these steps:
+>
+> 1. Run the *unit tests*
+> 2. Read the [Swift docs](https://www.swift.org/documentation/)
+>    - then build the app
+
+**Copy Mode → Plain Text** pastes just the words. The heading, bold, list numbers and link are
+lost (the exact text depends on the app you copied from):
+
+```text
+Release checklist
+Ship version 1.2 after these steps:
+Run the unit tests
+Read the Swift docs
+then build the app
+```
+
+**Copy Mode → Markdown** pastes the structure as Markdown:
+
+```markdown
+### Release checklist
+
+Ship **version 1.2** after these steps:
+
+1. Run the *unit tests*
+2. Read the [Swift docs](https://www.swift.org/documentation/)
+   - then build the app
+```
+
+Pasting into Google Docs is the other way round: Plain Text mode keeps the browser's own copy, so
+Docs shows it formatted, while Markdown mode shows the literal `###` and `**`. Use Markdown mode
+for GitHub, Slack, Obsidian, `.md` files, terminals and AI chat boxes.
+
 ## Trying a branch
 
 To test a pull request without switching branches in your own checkout:

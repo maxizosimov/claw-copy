@@ -151,6 +151,29 @@ final class HTMLToMarkdownTests: XCTestCase {
         XCTAssertEqual(md(html), "## Steps\n\n1. Run `swift build`\n2. Open the **app**\n\n```sh\nopen App.app\n```")
     }
 
+    /// The "Try the two modes" example from the README.
+    func testReadmeExample() {
+        let html = """
+        <h3>Release checklist</h3>
+        <p>Ship <strong>version 1.2</strong> after these steps:</p>
+        <ol>
+          <li>Run the <em>unit tests</em></li>
+          <li>Read the <a href="https://www.swift.org/documentation/">Swift docs</a>
+            <ul><li>then build the app</li></ul>
+          </li>
+        </ol>
+        """
+        XCTAssertEqual(md(html), """
+        ### Release checklist
+
+        Ship **version 1.2** after these steps:
+
+        1. Run the *unit tests*
+        2. Read the [Swift docs](https://www.swift.org/documentation/)
+           - then build the app
+        """)
+    }
+
     func testPlainTextPassesThrough() {
         XCTAssertEqual(md("just text"), "just text")
     }
