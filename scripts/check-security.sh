@@ -29,9 +29,14 @@ fi
 if grep -rnE '\.characters([^A-Za-z]|$)|charactersIgnoringModifiers|charactersByApplyingModifiers|keyboardGetUnicodeString|UCKeyTranslate|tapCreate|CGEventTapCreate|IOHIDManager' Sources; then
   fail "keystroke content or event tap API found above"
 fi
-keymonitors=$(grep -rlE '\.keyDown|\.keyUp' Sources/ClawCopy | grep -v 'KeyboardMonitor.swift' || true)
+keymonitors=$(grep -rlE '\.keyDown|\.keyUp' Sources/ClawCopy | grep -vE 'KeyboardMonitor\.swift|ShortcutsWindow\.swift' || true)
 if [ -n "$keymonitors" ]; then
-  fail "key events may only be observed in Sources/ClawCopy/KeyboardMonitor.swift, found in: $keymonitors"
+  fail "key events may only be observed in KeyboardMonitor.swift (passive) and ShortcutsWindow.swift (own window), found in: $keymonitors"
+fi
+# System-wide monitors only where documented; the shortcut recorder only listens in its own window.
+globalmonitors=$(grep -rl 'addGlobalMonitorForEvents' Sources/ClawCopy | grep -vE 'KeyboardMonitor\.swift|MouseMonitor\.swift' || true)
+if [ -n "$globalmonitors" ]; then
+  fail "system-wide event monitors may only be used in KeyboardMonitor.swift and MouseMonitor.swift, found in: $globalmonitors"
 fi
 
 # Open at Login: only SMAppService.mainApp (the app itself as a login item), only in LoginItem.swift.
