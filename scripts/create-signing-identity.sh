@@ -47,9 +47,31 @@ if [ "${1:-}" = "--remove" ]; then
   exit 0
 fi
 
+# Trusts the certificate for code signing only, for this user only (asks for the Mac password).
+# A self-signed certificate is its own root, so it must be trusted as "trustRoot";
+# "trustAsRoot" is only valid for certificates issued by someone else.
+trust_cert() {
+  echo "macOS will now ask for your Mac password to trust the certificate for code signing."
+  security add-trusted-cert -r trustRoot -p codeSign -k "$KEYCHAIN" "$1"
+}
+
+is_valid_identity() {
+  security find-identity -v -p codesigning "$KEYCHAIN" 2>/dev/null | grep -q "\"$NAME\""
+}
+
 if [ -e "$KEYCHAIN" ] && security find-certificate -c "$NAME" "$KEYCHAIN" >/dev/null 2>&1; then
-  echo "\"$NAME\" already exists in $KEYCHAIN. Nothing to do."
-  echo "(Run with --remove first to replace it.)"
+  if is_valid_identity; then
+    echo "\"$NAME\" already exists in $KEYCHAIN and is trusted for code signing. Nothing to do."
+    echo "(Run with --remove first to replace it.)"
+    exit 0
+  fi
+  # Created earlier but never trusted (e.g. an interrupted run): finish the setup.
+  echo "\"$NAME\" exists but is not trusted for code signing yet. Fixing that."
+  security find-certificate -c "$NAME" -p "$KEYCHAIN" > "$WORK/cert.pem"
+  trust_cert "$WORK/cert.pem"
+  security lock-keychain "$KEYCHAIN"
+  is_valid_identity || { echo "Error: the certificate is still not a valid code-signing identity." >&2; exit 1; }
+  echo "Done. Run ./scripts/build-app.sh to build with it."
   exit 0
 fi
 
@@ -89,8 +111,8 @@ PASS="$("$OPENSSL" rand -hex 16)"
 # -x: the private key can't be exported again. -T: codesign may use it (while unlocked).
 security import "$WORK/identity.p12" -k "$KEYCHAIN" -P "$PASS" -x -T /usr/bin/codesign
 
-echo "macOS will now ask for your Mac password to trust the certificate for code signing."
-security add-trusted-cert -r trustAsRoot -p codeSign -k "$KEYCHAIN" "$WORK/cert.pem"
+trust_cert "$WORK/cert.pem"
 
 security lock-keychain "$KEYCHAIN"
+is_valid_identity || { echo "Error: the certificate is not a valid code-signing identity." >&2; exit 1; }
 echo "Created \"$NAME\" in $KEYCHAIN (locked). Run ./scripts/build-app.sh to build with it."

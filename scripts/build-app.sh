@@ -29,6 +29,8 @@ swift build -c "$CONFIG"
 BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
 
 rm -rf "$APP"
+# Never leave a half-built (unsigned) app behind if any later step fails.
+trap 'rm -rf "$APP"' ERR
 mkdir -p "$APP/Contents/MacOS"
 cp "$BIN_DIR/ClawCopy" "$APP/Contents/MacOS/ClawCopy"
 cp Support/Info.plist "$APP/Contents/Info.plist"
@@ -39,8 +41,16 @@ if [ "$USE_LOCAL_KEYCHAIN" = 1 ]; then
   echo "Unlock the Claw Copy signing keychain to sign the app:"
   security unlock-keychain "$LOCAL_KEYCHAIN"
   trap 'security lock-keychain "$LOCAL_KEYCHAIN"' EXIT
+  # Sign by the certificate's SHA-1 so codesign uses exactly this certificate in this keychain.
+  CERT_HASH="$(security find-identity -v -p codesigning "$LOCAL_KEYCHAIN" \
+    | awk -v name="\"$LOCAL_IDENTITY\"" 'index($0, name) { print $2; exit }')"
+  if [ -z "$CERT_HASH" ]; then
+    echo "Error: \"$LOCAL_IDENTITY\" is not a valid (trusted) code-signing identity." >&2
+    echo "       Run ./scripts/create-signing-identity.sh to finish setting it up." >&2
+    false
+  fi
   codesign --force --options runtime --timestamp=none --keychain "$LOCAL_KEYCHAIN" \
-    --sign "$SIGN_IDENTITY" "$APP"
+    --sign "$CERT_HASH" "$APP"
 else
   codesign --force --options runtime --timestamp=none --sign "$SIGN_IDENTITY" "$APP"
 fi
