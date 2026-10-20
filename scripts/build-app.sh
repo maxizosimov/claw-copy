@@ -11,9 +11,12 @@ cd "$(dirname "$0")/.."
 
 CONFIG="${CONFIG:-release}"
 LOCAL_IDENTITY="Claw Copy Local Signing"
+LOCAL_KEYCHAIN="$HOME/Library/Keychains/claw-copy-signing.keychain-db"
+USE_LOCAL_KEYCHAIN=0
 if [ -z "${SIGN_IDENTITY:-}" ]; then
-  if security find-certificate -c "$LOCAL_IDENTITY" >/dev/null 2>&1; then
+  if [ -e "$LOCAL_KEYCHAIN" ]; then
     SIGN_IDENTITY="$LOCAL_IDENTITY"
+    USE_LOCAL_KEYCHAIN=1
   else
     SIGN_IDENTITY="-"
     echo "Note: ad-hoc signing. macOS will forget the Accessibility permission on every rebuild." >&2
@@ -31,7 +34,16 @@ cp "$BIN_DIR/ClawCopy" "$APP/Contents/MacOS/ClawCopy"
 cp Support/Info.plist "$APP/Contents/Info.plist"
 
 # Hardened runtime, no entitlements: the app requests no network, camera, files, etc.
-codesign --force --options runtime --timestamp=none --sign "$SIGN_IDENTITY" "$APP"
+if [ "$USE_LOCAL_KEYCHAIN" = 1 ]; then
+  # The signing keychain is unlocked only for this one signature.
+  echo "Unlock the Claw Copy signing keychain to sign the app:"
+  security unlock-keychain "$LOCAL_KEYCHAIN"
+  trap 'security lock-keychain "$LOCAL_KEYCHAIN"' EXIT
+  codesign --force --options runtime --timestamp=none --keychain "$LOCAL_KEYCHAIN" \
+    --sign "$SIGN_IDENTITY" "$APP"
+else
+  codesign --force --options runtime --timestamp=none --sign "$SIGN_IDENTITY" "$APP"
+fi
 codesign --verify --strict --verbose=2 "$APP"
 
 echo "Built $APP (signed with: $SIGN_IDENTITY)"

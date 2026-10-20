@@ -27,13 +27,15 @@ On first launch macOS asks for **Accessibility** permission
 (System Settings › Privacy & Security › Accessibility). Turn on **Claw Copy**. The menu bar
 menu shows "Copy on select is active" once access is granted.
 
-> **Keep the permission across rebuilds:** run `./scripts/create-signing-identity.sh` once
-> (it asks for your password to trust the certificate). It creates a local, self-signed
-> code-signing certificate in your login keychain, and `build-app.sh` uses it automatically.
-> Without it, builds are ad-hoc signed and macOS treats every rebuild as a new app, so you'd have
-> to re-enable Claw Copy under Accessibility each time. After switching to the certificate,
-> remove the old Claw Copy entry with **–** once and enable the new one; later rebuilds keep it.
-> If the first build asks whether `codesign` may use the key, choose **Always Allow**.
+> **Keep the permission across rebuilds:** run `./scripts/create-signing-identity.sh` once.
+> It creates a local, self-signed code-signing certificate in its own keychain
+> (`~/Library/Keychains/claw-copy-signing.keychain-db`) with a password you choose, and
+> `build-app.sh` uses it automatically. That keychain stays locked except while a build signs
+> the app, so every build asks for its password and nothing can sign silently as Claw Copy.
+> Without it, builds are ad-hoc signed and macOS treats every rebuild as a new app.
+> After switching signatures, reset the old permission once:
+> `tccutil reset Accessibility com.maxizosimov.ClawCopy`, then open the app and enable it again.
+> `./scripts/create-signing-identity.sh --remove` deletes the certificate, its key and its trust setting.
 > You can also sign with your own identity: `SIGN_IDENTITY="Apple Development: you@example.com" ./scripts/build-app.sh`.
 
 To start it at login, add `Claw Copy.app` under System Settings › General › Login Items.
