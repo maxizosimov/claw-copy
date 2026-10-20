@@ -5,6 +5,7 @@ import ClawCopyCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let controller = CopyOnSelectController()
     private let mouseMonitor = MouseMonitor()
+    private let keyboardMonitor = KeyboardMonitor()
     private var statusItem: NSStatusItem?
     private var statusMenuItem: NSMenuItem?
     private var permissionsMenuItem: NSMenuItem?
@@ -18,6 +19,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         mouseMonitor.start()
 
+        keyboardMonitor.onSelectionGesture = { [weak self] in
+            self?.controller.selectionGestureEnded()
+        }
+        // Started from refreshStatus() once Accessibility access is granted: macOS only
+        // delivers key events to global monitors of trusted apps.
+
         if !Permissions.isTrusted(prompt: true) {
             waitForPermission()
         }
@@ -26,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         mouseMonitor.stop()
+        keyboardMonitor.stop()
         permissionTask?.cancel()
     }
 
@@ -68,6 +76,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ? "Copy on select is active"
             : "Waiting for Accessibility permission"
         permissionsMenuItem?.isHidden = trusted
+        if trusted {
+            keyboardMonitor.start()
+        }
     }
 
     // MARK: - Permissions

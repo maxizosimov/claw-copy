@@ -24,12 +24,22 @@ if [ "$opens" != "1" ]; then
   fail "expected exactly one NSWorkspace.shared.open call, found $opens"
 fi
 
+# Keyboard privacy: key events are only ever reduced to "navigation key + Shift". The app must
+# never read typed characters or install an event tap (which could block or rewrite keys).
+if grep -rnE '\.characters([^A-Za-z]|$)|charactersIgnoringModifiers|charactersByApplyingModifiers|keyboardGetUnicodeString|UCKeyTranslate|tapCreate|CGEventTapCreate|IOHIDManager' Sources; then
+  fail "keystroke content or event tap API found above"
+fi
+keymonitors=$(grep -rlE '\.keyDown|\.keyUp' Sources/ClawCopy | grep -v 'KeyboardMonitor.swift' || true)
+if [ -n "$keymonitors" ]; then
+  fail "key events may only be observed in Sources/ClawCopy/KeyboardMonitor.swift, found in: $keymonitors"
+fi
+
 # Zero third-party dependencies.
 if grep -nE '\.package\(' Package.swift; then
   fail "third-party package dependency found"
 fi
 
 if [ "$status" -eq 0 ]; then
-  echo "Security checks passed: no network, process, scripting or dependency usage."
+  echo "Security checks passed: no network, process, scripting, keystroke content or dependency usage."
 fi
 exit "$status"
