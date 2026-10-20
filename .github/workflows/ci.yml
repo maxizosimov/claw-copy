@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Security checks
+        run: ./scripts/check-security.sh
+
+      - name: Unit tests
+        run: swift test
+
+      - name: Build and sign app bundle
+        run: ./scripts/build-app.sh
+
+      - name: Verify the app bundle has no entitlements
+        run: |
+          ents="$(codesign -d --entitlements - "build/Claw Copy.app" 2>/dev/null || true)"
+          echo "$ents"
+          if echo "$ents" | grep -q '<key>'; then
+            echo "Unexpected entitlements" >&2
+            exit 1
+          fi
