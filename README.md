@@ -24,7 +24,8 @@ A tiny macOS menu bar app: **select text anywhere and it's already copied.** No 
   ⎋ cancels, **Reset to Defaults** restores them). The current shortcuts are always shown in the
   menu, right under the status line.
 - Lives in the menu bar (clipboard icon). It has no Dock icon, and no windows except the history viewer.
-- Fully offline, with zero dependencies (see [Security](#security)).
+- Offline except for a once-a-day update check (which you can turn off), with zero dependencies
+  (see [Security](#security)).
 
 ## Install
 
