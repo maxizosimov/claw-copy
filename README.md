@@ -26,6 +26,34 @@ A tiny macOS menu bar app: **select text anywhere and it's already copied.** No 
 - Lives in the menu bar (clipboard icon). It has no Dock icon, and no windows except the history viewer.
 - Fully offline, with zero dependencies (see [Security](#security)).
 
+## Install
+
+1. Download the latest `Claw-Copy-<version>.zip` from the
+   [Releases page](https://github.com/maxizosimov/claw-copy/releases/latest), unzip it and move
+   **Claw Copy** to **Applications**.
+2. Open it. Releases aren't notarized by Apple, so macOS blocks the first launch: open
+   System Settings › Privacy & Security, scroll down and click **Open Anyway** (once).
+3. Allow **Accessibility** when asked.
+
+**Updates:** every change merged to `main` is published as a new release. Claw Copy checks for it
+once a day and shows **Update Available: Claw Copy 0.1.x…** at the top of its menu. Click it,
+download the new zip, quit Claw Copy and replace the app. (Also: **Check for Updates…**, and
+**Check for Updates Automatically** to turn the daily check off.)
+
+### Maintainer: keep Accessibility across updates (optional, once)
+
+Without an Apple Developer ID, releases are ad-hoc signed, so macOS treats every update as a new
+app and users have to allow Accessibility again. To avoid that, give the release workflow a
+fixed signing certificate (requires the GitHub CLI, `gh auth login`):
+
+```sh
+./scripts/create-release-certificate.sh
+```
+
+It creates a self-signed code-signing certificate and stores it as the `RELEASE_CERT_P12_BASE64`
+and `RELEASE_CERT_PASSWORD` repository secrets; the key never stays on disk. Every following
+release is signed with it, so the permission carries over between updates.
+
 ## Requirements
 
 - macOS 13 Ventura or later
@@ -133,7 +161,14 @@ Claw Copy never copies:
 
 Claw Copy's job is to see what you select, so it's built to be boring and auditable:
 
-- **No network access at all.** No networking code, no analytics, no update checks, no remote URLs.
+- **One network request, and only for updates.** Release builds ask GitHub's "latest release" API
+  for this repository whether a newer version exists, at most once a day (or when you click
+  **Check for Updates…**; turn it off with **Check for Updates Automatically**). It's a plain GET
+  with no cookies, no cache and no redirects; nothing about you or your clipboard is sent; only the
+  version and the release page link are read, and the link is only opened if it's this
+  repository's releases page. The app never downloads or installs anything itself. Development
+  builds (`build-app.sh`, `try.sh`) never connect at all. CI fails if any other networking, URL or
+  request type appears.
 - **No code execution.** It never runs shell commands or scripts, never loads plugins, and never renders HTML.
 - **Selected text is inert data.** It is copied exactly as selected, never parsed as instructions,
   executed or opened. "Prompt-injection" style text is just more text. A unit test covers this.
@@ -234,6 +269,10 @@ swift test                      # unit tests for the core logic
       shortcut, all of them show the new one.
 - [ ] Keyboard Shortcuts… → click Show Clipboard History → press ⌥⇧H → the shortcut changes and works.
       Pressing ⌘Q or a plain letter shows a message instead. ⌫ sets it to None; Reset to Defaults restores it.
+- [ ] A `try.sh` build shows "Development build (<commit>)" at the bottom of the menu and no
+      update items.
+- [ ] A release build (from the Releases page) shows "Version 0.1.x"; Check for Updates… says it's
+      up to date, or offers the newer release, whose page opens in the browser.
 - [ ] Menu bar icon → Quit works.
 
 ## License

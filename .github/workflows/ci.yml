@@ -47,11 +47,11 @@ jobs:
             exit 1
           fi
 
-      - name: Verify the binary links no networking frameworks
+      - name: Verify the binary links no low-level networking or web frameworks
         run: |
           libs="$(otool -L "build/Claw Copy.app/Contents/MacOS/ClawCopy")"
           echo "$libs"
-          if echo "$libs" | grep -Ei 'Network\.framework|CFNetwork|WebKit|JavaScriptCore'; then
-            echo "Networking or web framework linked into the app" >&2
+          if echo "$libs" | grep -Ei 'Network\.framework|WebKit|JavaScriptCore'; then
+            echo "Network.framework or a web framework is linked into the app" >&2
             exit 1
           fi
