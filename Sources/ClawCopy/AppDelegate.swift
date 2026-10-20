@@ -12,10 +12,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var permissionsMenuItem: NSMenuItem?
     private var openAtLoginMenuItem: NSMenuItem?
     private let historyMenu = NSMenu()
+    private let historyViewer = HistoryTextViewer()
     private var permissionTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         LoginItem.applyDefaultOnFirstLaunch()
+        setUpMainMenu()
         setUpStatusItem()
         historyController.start()
 
@@ -44,6 +46,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     // MARK: - Menu bar
+
+    /// Menu bar apps have no visible main menu, but it is what routes ⌘C / ⌘A / ⌘W to the
+    /// history viewer window.
+    private func setUpMainMenu() {
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        edit.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        let editItem = NSMenuItem()
+        editItem.submenu = edit
+        let main = NSMenu()
+        main.addItem(editItem)
+        NSApp.mainMenu = main
+    }
 
     private func setUpStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -107,16 +123,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             historyMenu.addItem(disabledItem("Nothing copied yet"))
         } else {
             for (index, text) in entries.enumerated() {
-                let item = NSMenuItem(
-                    title: HistoryMenuTitle.make(text),
-                    action: #selector(restoreHistoryItem(_:)),
-                    keyEquivalent: index < 9 ? String(index + 1) : ""
-                )
+                let title = HistoryMenuTitle.make(text)
+                let key = index < 9 ? String(index + 1) : ""
+
+                let item = NSMenuItem(title: title, action: #selector(restoreHistoryItem(_:)), keyEquivalent: key)
                 item.keyEquivalentModifierMask = []
                 item.target = self
                 item.tag = index
-                item.toolTip = HistoryMenuTitle.make(text, maxLength: 300)
+                // Hover preview: the text with its line breaks, cut off when long.
+                item.toolTip = HistoryPreview.make(text)
                 historyMenu.addItem(item)
+
+                // Shown instead of the item above while ⌥ Option is held.
+                let showFull = NSMenuItem(
+                    title: "Show Full Text… \(HistoryMenuTitle.make(text, maxLength: 44))",
+                    action: #selector(showHistoryItem(_:)),
+                    keyEquivalent: key
+                )
+                showFull.keyEquivalentModifierMask = [.option]
+                showFull.isAlternate = true
+                showFull.target = self
+                showFull.tag = index
+                historyMenu.addItem(showFull)
             }
         }
 
@@ -140,6 +168,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func restoreHistoryItem(_ sender: NSMenuItem) {
         historyController.restore(at: sender.tag)
+    }
+
+    @objc private func showHistoryItem(_ sender: NSMenuItem) {
+        let entries = historyController.history.entries
+        guard entries.indices.contains(sender.tag) else { return }
+        historyViewer.show(entries[sender.tag]) { [weak self] text in
+            self?.historyController.copyToClipboard(text)
+        }
     }
 
     @objc private func clearHistory() {

@@ -62,7 +62,7 @@ public enum ClipboardRecordPolicy {
 public enum HistoryMenuTitle {
     /// Invisible formatting characters that can make text display differently from what it is
     /// (bidirectional overrides, zero-width characters). Stripped from titles.
-    private static let invisibleRanges: [ClosedRange<UInt32>] = [
+    static let invisibleRanges: [ClosedRange<UInt32>] = [
         0x00AD...0x00AD, 0x200B...0x200F, 0x202A...0x202E, 0x2060...0x2064, 0x2066...0x2069, 0xFEFF...0xFEFF,
     ]
 
@@ -93,5 +93,42 @@ public enum HistoryMenuTitle {
             title = String(title.prefix(max(1, maxLength - 1))) + "…"
         }
         return title
+    }
+}
+
+/// A multi-line preview of a clipboard text for the history menu's hover tooltip.
+public enum HistoryPreview {
+    public static func make(_ text: String, maxLines: Int = 20, maxCharacters: Int = 1000) -> String {
+        // Keep line breaks, drop invisible formatting characters and other control characters.
+        var scalars = String.UnicodeScalarView()
+        var previousWasCR = false
+        for scalar in text.unicodeScalars {
+            defer { previousWasCR = scalar == "\r" }
+            if HistoryMenuTitle.invisibleRanges.contains(where: { $0.contains(scalar.value) }) { continue }
+            switch scalar {
+            case "\n":
+                if !previousWasCR { scalars.append("\n") }
+            case "\r", "\u{2028}", "\u{2029}":
+                scalars.append("\n")
+            case "\t":
+                scalars.append(contentsOf: "    ".unicodeScalars)
+            default:
+                if scalar.properties.generalCategory == .control { continue }
+                scalars.append(scalar)
+            }
+        }
+        let cleaned = String(scalars).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return HistoryMenuTitle.invisiblePlaceholder }
+
+        let lines = cleaned.split(separator: "\n", omittingEmptySubsequences: false)
+        var preview = lines.prefix(max(1, maxLines)).joined(separator: "\n")
+        var truncated = lines.count > maxLines
+        if preview.count > maxCharacters {
+            preview = String(preview.prefix(max(1, maxCharacters)))
+            truncated = true
+        }
+        guard truncated else { return preview }
+        let total = text.count.formatted(.number)
+        return preview + "\n…\n(\(total) characters in total. Hold ⌥ Option and choose Show Full Text… to see all of it.)"
     }
 }

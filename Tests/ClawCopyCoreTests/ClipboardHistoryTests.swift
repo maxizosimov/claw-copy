@@ -85,3 +85,28 @@ final class HistoryMenuTitleTests: XCTestCase {
         XCTAssertEqual(HistoryMenuTitle.make("👋🏽👋🏽👋🏽", maxLength: 2), "👋🏽…")
     }
 }
+
+final class HistoryPreviewTests: XCTestCase {
+    func testShortTextIsShownInFullWithLineBreaks() {
+        XCTAssertEqual(HistoryPreview.make("line 1\r\nline 2\rline 3\n\tindented"), "line 1\nline 2\nline 3\n    indented")
+    }
+
+    func testLongTextIsCutByLines() {
+        let text = (1...30).map { "line \($0)" }.joined(separator: "\n")
+        let preview = HistoryPreview.make(text, maxLines: 3)
+        XCTAssertTrue(preview.hasPrefix("line 1\nline 2\nline 3\n…"))
+        XCTAssertFalse(preview.contains("line 4"))
+        XCTAssertTrue(preview.contains("Show Full Text"))
+    }
+
+    func testLongTextIsCutByCharacters() {
+        let preview = HistoryPreview.make(String(repeating: "x", count: 5000), maxCharacters: 100)
+        XCTAssertTrue(preview.hasPrefix(String(repeating: "x", count: 100) + "\n…"))
+        XCTAssertFalse(preview.hasPrefix(String(repeating: "x", count: 101)))
+    }
+
+    func testStripsInvisibleAndControlCharacters() {
+        XCTAssertEqual(HistoryPreview.make("a\u{202E}b\u{0007}c\u{200B}"), "abc")
+        XCTAssertEqual(HistoryPreview.make("\u{200B}\u{FEFF}"), HistoryMenuTitle.invisiblePlaceholder)
+    }
+}

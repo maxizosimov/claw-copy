@@ -61,7 +61,11 @@ final class ClipboardHistoryController {
     /// Puts a history entry back on the clipboard. It then moves to the top of the history.
     func restore(at index: Int) {
         guard history.entries.indices.contains(index) else { return }
-        writer.write(history.entries[index])
+        copyToClipboard(history.entries[index])
+    }
+
+    func copyToClipboard(_ text: String) {
+        writer.write(text)
         poll()
     }
 
