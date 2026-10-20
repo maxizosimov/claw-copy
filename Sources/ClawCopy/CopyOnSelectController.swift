@@ -60,12 +60,21 @@ final class CopyOnSelectController {
         case .writePlain(let text):
             pasteboard.write(text)
         case .sendCopyKeystroke:
+            // Cmd+C goes to whichever app is frontmost when it is sent. Only send it if that is
+            // still the app the selection came from (the user may have switched apps, e.g.
+            // to a password manager, since the selection was read).
+            guard isStillFrontmost(snapshot.bundleID) else { return }
             if mode == .markdown {
                 await copyAsMarkdown()
             } else {
                 KeystrokeCopier.sendCopy()
             }
         }
+    }
+
+    private func isStillFrontmost(_ bundleID: String?) -> Bool {
+        let frontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        return frontmost == bundleID && !copyPolicy.isExcluded(bundleID: frontmost)
     }
 
     /// Sends Cmd+C, waits for the app's copy, and replaces its HTML with Markdown. If the app

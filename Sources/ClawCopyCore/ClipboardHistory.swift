@@ -71,25 +71,36 @@ public enum HistoryMenuTitle {
 
     public static func make(_ text: String, maxLength: Int = 60) -> String {
         var scalars = String.UnicodeScalarView()
+        var scalarCount = 0
+        var cutShort = false
         var lastWasSpace = true // also trims leading whitespace
         for scalar in text.unicodeScalars {
+            // Enough for any title: stop instead of scanning a (possibly huge) entry to the end.
+            if scalarCount > maxLength * 4 {
+                cutShort = true
+                break
+            }
             if invisibleRanges.contains(where: { $0.contains(scalar.value) }) { continue }
             let isSpace = scalar.properties.isWhitespace
                 || scalar.properties.generalCategory == .control
                 || scalar.properties.generalCategory == .lineSeparator
                 || scalar.properties.generalCategory == .paragraphSeparator
             if isSpace {
-                if !lastWasSpace { scalars.append(" ") }
+                if !lastWasSpace {
+                    scalars.append(" ")
+                    scalarCount += 1
+                }
                 lastWasSpace = true
             } else {
                 scalars.append(scalar)
+                scalarCount += 1
                 lastWasSpace = false
             }
         }
         var title = String(scalars)
         while title.hasSuffix(" ") { title.removeLast() }
         if title.isEmpty { return invisiblePlaceholder }
-        if title.count > maxLength {
+        if title.count > maxLength || cutShort {
             title = String(title.prefix(max(1, maxLength - 1))) + "…"
         }
         return title
@@ -99,10 +110,14 @@ public enum HistoryMenuTitle {
 /// A multi-line preview of a clipboard text for the history menu's hover tooltip.
 public enum HistoryPreview {
     public static func make(_ text: String, maxLines: Int = 20, maxCharacters: Int = 1000) -> String {
+        // Only the start of a (possibly huge) entry can be shown, so only that is processed.
+        let head = text.prefix(maxCharacters + 1)
+        let headIsWholeText = head.endIndex == text.endIndex
+
         // Keep line breaks, drop invisible formatting characters and other control characters.
         var scalars = String.UnicodeScalarView()
         var previousWasCR = false
-        for scalar in text.unicodeScalars {
+        for scalar in head.unicodeScalars {
             defer { previousWasCR = scalar == "\r" }
             if HistoryMenuTitle.invisibleRanges.contains(where: { $0.contains(scalar.value) }) { continue }
             switch scalar {
@@ -122,7 +137,7 @@ public enum HistoryPreview {
 
         let lines = cleaned.split(separator: "\n", omittingEmptySubsequences: false)
         var preview = lines.prefix(max(1, maxLines)).joined(separator: "\n")
-        var truncated = lines.count > maxLines
+        var truncated = lines.count > maxLines || !headIsWholeText
         if preview.count > maxCharacters {
             preview = String(preview.prefix(max(1, maxCharacters)))
             truncated = true

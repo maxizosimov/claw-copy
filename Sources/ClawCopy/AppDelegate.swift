@@ -151,8 +151,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) {
         guard menu === historyMenu else { return }
-        if let item, !item.isAlternate, let preview = item.representedObject as? String {
-            historyPreview.show(preview)
+        let entries = historyController.history.entries
+        if let item, !item.isAlternate, let index = item.representedObject as? Int, entries.indices.contains(index) {
+            historyPreview.show(HistoryPreview.make(entries[index]))
         } else {
             historyPreview.hide()
         }
@@ -181,8 +182,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 item.keyEquivalentModifierMask = []
                 item.target = self
                 item.tag = index
-                // Hover preview (shown beside the menu): the text with its line breaks.
-                item.representedObject = HistoryPreview.make(text)
+                // Hover preview (shown beside the menu), built only when the entry is highlighted.
+                item.representedObject = index
                 historyMenu.addItem(item)
 
                 // Shown instead of the item above while ⌥ Option is held.

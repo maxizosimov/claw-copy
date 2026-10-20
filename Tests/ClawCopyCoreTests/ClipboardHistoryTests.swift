@@ -80,6 +80,14 @@ final class HistoryMenuTitleTests: XCTestCase {
         XCTAssertEqual(HistoryMenuTitle.make("\u{200B}\u{202E}"), HistoryMenuTitle.invisiblePlaceholder)
     }
 
+    func testHugeEntriesAreCutWithoutScanningEverything() {
+        let huge = "start " + String(repeating: "word ", count: 200_000)
+        let title = HistoryMenuTitle.make(huge, maxLength: 20)
+        XCTAssertEqual(title.count, 20)
+        XCTAssertTrue(title.hasPrefix("start word"))
+        XCTAssertTrue(title.hasSuffix("…"))
+    }
+
     func testKeepsEmojiAndNonLatinTextIntact() {
         XCTAssertEqual(HistoryMenuTitle.make("Привет 👋🏽 世界"), "Привет 👋🏽 世界")
         XCTAssertEqual(HistoryMenuTitle.make("👋🏽👋🏽👋🏽", maxLength: 2), "👋🏽…")
@@ -103,6 +111,14 @@ final class HistoryPreviewTests: XCTestCase {
         let preview = HistoryPreview.make(String(repeating: "x", count: 5000), maxCharacters: 100)
         XCTAssertTrue(preview.hasPrefix(String(repeating: "x", count: 100) + "\n…"))
         XCTAssertFalse(preview.hasPrefix(String(repeating: "x", count: 101)))
+    }
+
+    func testHugeEntryPreviewShowsStartAndTotal() {
+        let huge = String(repeating: "x", count: 1_000_000)
+        let preview = HistoryPreview.make(huge, maxCharacters: 50)
+        XCTAssertTrue(preview.hasPrefix(String(repeating: "x", count: 50) + "\n…"))
+        XCTAssertTrue(preview.hasSuffix("characters in total)"))
+        XCTAssertTrue(preview.contains(1_000_000.formatted(.number)))
     }
 
     func testStripsInvisibleAndControlCharacters() {
