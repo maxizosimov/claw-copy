@@ -55,7 +55,8 @@ Claw Copy's job is to see what you select, so it's built to be boring and audita
 - **Hardened runtime, no entitlements.**
 - **Enforced in CI.** `scripts/check-security.sh` fails the build if networking, process/script
   execution, dynamic loading, web views, remote URL literals or package dependencies appear.
-  CI also checks that the signed app has no entitlements.
+  CI also checks that the signed app has no entitlements and that the binary links no
+  networking or web frameworks. CI actions are pinned to commit SHAs and run with a read-only token.
 
 ## Development
 
