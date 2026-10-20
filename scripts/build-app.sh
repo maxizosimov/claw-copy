@@ -40,7 +40,19 @@ if [ "$USE_LOCAL_KEYCHAIN" = 1 ]; then
   # The signing keychain is unlocked only for this one signature.
   echo "Unlock the Claw Copy signing keychain to sign the app:"
   security unlock-keychain "$LOCAL_KEYCHAIN"
-  trap 'security lock-keychain "$LOCAL_KEYCHAIN"' EXIT
+  # codesign only finds identities in keychains on the user's search list, so add the signing
+  # keychain for this one signature and restore the original list (and lock it) afterwards.
+  ORIGINAL_KEYCHAINS=()
+  while IFS= read -r kc; do
+    kc="${kc#"${kc%%[![:space:]]*}"}"; kc="${kc#\"}"; kc="${kc%\"}"
+    [ -n "$kc" ] && [ "$kc" != "$LOCAL_KEYCHAIN" ] && ORIGINAL_KEYCHAINS+=("$kc")
+  done < <(security list-keychains -d user)
+  restore_keychains() {
+    security list-keychains -d user -s ${ORIGINAL_KEYCHAINS[@]+"${ORIGINAL_KEYCHAINS[@]}"}
+    security lock-keychain "$LOCAL_KEYCHAIN"
+  }
+  trap restore_keychains EXIT
+  security list-keychains -d user -s "$LOCAL_KEYCHAIN" ${ORIGINAL_KEYCHAINS[@]+"${ORIGINAL_KEYCHAINS[@]}"}
   # Sign by the certificate's SHA-1 so codesign uses exactly this certificate in this keychain.
   CERT_HASH="$(security find-identity -v -p codesigning "$LOCAL_KEYCHAIN" \
     | awk -v name="\"$LOCAL_IDENTITY\"" 'index($0, name) { print $2; exit }')"
