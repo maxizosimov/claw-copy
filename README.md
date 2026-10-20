@@ -8,6 +8,11 @@ A tiny macOS menu bar app: **select text anywhere and it's already copied.** No 
 - Select All works the same way: press Cmd+A and the selection is copied when you release Cmd.
   Pressing another key while still holding Cmd (for example Cmd+A then Cmd+V to replace
   everything) skips the copy, so paste-to-replace keeps working.
+- **Copy Mode:** menu bar → **Copy Mode** → **Plain Text** (default) or **Markdown**. In Markdown
+  mode, selecting formatted text (a web page, a chat reply, Google Docs, Notes) copies it as
+  Markdown (`# Title`, `**bold**`, `- item`, `[link](url)`, code blocks, tables), so it pastes as
+  Markdown anywhere. The menu bar icon turns into **#** while Markdown mode is on. Apps that copy
+  no formatting (e.g. TextEdit's plain text, Terminal) still copy their plain text.
 - **Clipboard history:** menu bar → **Clipboard History** lists the last 25 texts you copied
   (with any app, not just Claw Copy). Click one, or press 1–9 while the menu is open, to put it
   back on the clipboard. Hover an entry to preview it beside the menu with its line breaks, or hold ⌥ Option and
@@ -88,6 +93,11 @@ Claw Copy's job is to see what you select, so it's built to be boring and audita
 - **Selected text is inert data.** It is copied exactly as selected, never parsed as instructions,
   executed or opened. "Prompt-injection" style text is just more text. A unit test covers this.
 - **No dependencies.** Only Apple system frameworks.
+- **Markdown conversion can't load or run anything.** HTML is converted by Claw Copy's own small
+  converter, not by WebKit or AppKit's HTML import (which can fetch remote resources; CI bans
+  it). It understands basic text structure only and drops scripts, styles, images, forms and
+  event handlers. Only `http`, `https` and `mailto` links are kept, so a `javascript:` link from a
+  page can't end up in what you paste.
 - **Clipboard history stays in memory.** It is never written to disk (the app has no file-writing
   code at all, which CI enforces) and never records items that password managers mark as
   concealed or transient, or anything copied while a password manager is the active app.
@@ -158,6 +168,16 @@ swift test                      # unit tests for the core logic
 - [ ] Copy a password from 1Password / Bitwarden / Passwords → it does **not** appear in the history.
 - [ ] Clear History → the list is empty. Uncheck Keep Clipboard History → copies are no longer recorded.
 - [ ] Quit and reopen → the history is empty.
+- [ ] Copy Mode → Markdown → the menu bar icon shows **#** and the status line says "· Markdown".
+- [ ] Markdown mode, Chrome / Safari: select a section of a docs page with a heading, a list and a
+      link → paste into TextEdit (Format › Make Plain Text) → you get `#`, `- ` and `[text](url)`.
+- [ ] Markdown mode, Google Docs: select bold text and a bulleted list → paste → `**bold**` and `- item`.
+- [ ] Markdown mode, a code block on a web page → paste → a fenced code block.
+- [ ] Markdown mode, Terminal or a plain-text editor → paste → the plain text, unchanged.
+- [ ] Markdown mode, a password field → the clipboard is **unchanged**.
+- [ ] Markdown mode → Clipboard History shows the Markdown version only, not the plain copy too.
+- [ ] Copy Mode → Plain Text → the icon goes back to the clipboard, and copies are plain again.
+- [ ] Quit and reopen → the chosen Copy Mode is remembered.
 - [ ] Menu bar icon → Quit works.
 
 ## License

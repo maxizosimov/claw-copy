@@ -12,6 +12,9 @@ final class ClipboardHistoryController {
 
     private(set) var history = ClipboardHistory()
     var copyPolicy = CopyPolicy()
+    /// While this returns true, clipboard changes are left for later (e.g. while copy-on-select
+    /// is still converting a copy to Markdown), so only the final contents are recorded.
+    var shouldPause: () -> Bool = { false }
 
     private let pasteboard = NSPasteboard.general
     private let writer = PasteboardWriter()
@@ -70,6 +73,7 @@ final class ClipboardHistoryController {
     }
 
     private func poll() {
+        guard !shouldPause() else { return }
         let changeCount = pasteboard.changeCount
         guard changeCount != lastChangeCount else { return }
         lastChangeCount = changeCount
