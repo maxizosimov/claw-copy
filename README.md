@@ -10,7 +10,7 @@ A tiny macOS menu bar app: **select text anywhere and it's already copied.** No 
   everything) skips the copy, so paste-to-replace keeps working.
 - **Clipboard history:** menu bar → **Clipboard History** lists the last 25 texts you copied
   (with any app, not just Claw Copy). Click one, or press 1–9 while the menu is open, to put it
-  back on the clipboard. Hover an entry to preview it with its line breaks, or hold ⌥ Option and
+  back on the clipboard. Hover an entry to preview it beside the menu with its line breaks, or hold ⌥ Option and
   choose **Show Full Text…** to see the whole copy in a read-only window. History lives in memory only: it is never saved to disk and is gone
   when you quit. Turn it off with **Keep Clipboard History**. **Clear History** wipes it.
 - Lives in the menu bar (clipboard icon). It has no Dock icon, and no windows except the history viewer.
@@ -150,7 +150,7 @@ swift test                      # unit tests for the core logic
 - [ ] Copy three different texts (with Cmd+C or by selecting) → menu bar → Clipboard History
       lists them newest first. Click the third → it pastes, and moves to the top.
 - [ ] With the menu open, press 2 → the second entry is back on the clipboard.
-- [ ] Copy a long multi-line text → hover its entry → the tooltip shows the first lines with line breaks.
+- [ ] Copy a long multi-line text → hover its entry → a preview beside the menu shows the first lines with line breaks.
 - [ ] Hold ⌥ Option in the history menu → entries read "Show Full Text…" → click one → a window shows
       the whole text; Copy to Clipboard puts it back on the clipboard.
 - [ ] Copy a password from 1Password / Bitwarden / Passwords → it does **not** appear in the history.

@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var openAtLoginMenuItem: NSMenuItem?
     private let historyMenu = NSMenu()
     private let historyViewer = HistoryTextViewer()
+    private let historyPreview = HistoryPreviewPanel()
     private var permissionTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -84,6 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         let history = NSMenuItem(title: "Clipboard History", action: nil, keyEquivalent: "")
         history.submenu = historyMenu
+        historyMenu.delegate = self
         menu.addItem(history)
 
         menu.addItem(.separator())
@@ -106,9 +108,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
+        guard menu !== historyMenu else { return }
         // The user may have changed it in System Settings › Login Items meanwhile.
         refreshOpenAtLogin()
         rebuildHistoryMenu()
+    }
+
+    func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) {
+        guard menu === historyMenu else { return }
+        if let item, !item.isAlternate, let preview = item.representedObject as? String {
+            historyPreview.show(preview)
+        } else {
+            historyPreview.hide()
+        }
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        historyPreview.hide()
     }
 
     // MARK: - Clipboard history
@@ -130,8 +146,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 item.keyEquivalentModifierMask = []
                 item.target = self
                 item.tag = index
-                // Hover preview: the text with its line breaks, cut off when long.
-                item.toolTip = HistoryPreview.make(text)
+                // Hover preview (shown beside the menu): the text with its line breaks.
+                item.representedObject = HistoryPreview.make(text)
                 historyMenu.addItem(item)
 
                 // Shown instead of the item above while ⌥ Option is held.
