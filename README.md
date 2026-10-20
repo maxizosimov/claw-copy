@@ -43,6 +43,21 @@ Login Items. Toggle it in the menu bar menu (**Open at Login**). Once you turn i
 Login Items records the app at its current location, so move it to `/Applications` first if you
 don't want it running from `build/`.
 
+## Trying a branch
+
+To test a pull request without switching branches in your own checkout:
+
+```sh
+./scripts/try.sh feature/some-branch
+```
+
+It fetches that branch from GitHub, builds it in a separate worktree
+(`~/Library/Caches/claw-copy/try`), quits the running Claw Copy, installs the build as
+`~/Applications/Claw Copy.app` and opens it. Run `./scripts/try.sh` with no branch to go back
+to the latest `main`. The app's name, location and signature never change, so the
+Accessibility permission and Open at Login keep working across branches. Only branches of this
+repository are accepted, never pull requests from forks, because the script runs what it builds.
+
 ## How it works
 
 1. A passive, system-wide mouse monitor spots selection gestures. It only observes events and never blocks or changes them.
