@@ -13,6 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var openAtLoginMenuItem: NSMenuItem?
     private let historyMenu = NSMenu()
     private let shortcutsWindow = ShortcutsWindow()
+    /// Dim lines that show the current shortcuts, so they never have to be looked up.
+    private let shortcutsHintItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let modeShortcutHintItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let modeMenu = NSMenu()
     private let historyViewer = HistoryTextViewer()
     private let historyPreview = HistoryPreviewPanel()
@@ -75,6 +78,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let status = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         status.isEnabled = false
         menu.addItem(status)
+        shortcutsHintItem.isEnabled = false
+        menu.addItem(shortcutsHintItem)
 
         let permissions = NSMenuItem(
             title: "Grant Accessibility Permission…",
@@ -91,6 +96,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             modeItem.representedObject = mode.rawValue
             modeMenu.addItem(modeItem)
         }
+        modeMenu.addItem(.separator())
+        modeShortcutHintItem.isEnabled = false
+        modeMenu.addItem(modeShortcutHintItem)
         let copyMode = NSMenuItem(title: "Copy Mode", action: nil, keyEquivalent: "")
         copyMode.submenu = modeMenu
         menu.addItem(copyMode)
@@ -200,7 +208,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard menu !== historyMenu else { return }
         // The user may have changed it in System Settings › Login Items meanwhile.
         refreshOpenAtLogin()
+        refreshShortcutHints()
         rebuildHistoryMenu()
+    }
+
+    /// e.g. "⌃⌥⌘C Menu · ⌃⌥⌘V History · ⌃⌥⌘M Mode"; hidden when no shortcuts are set.
+    private func refreshShortcutHints() {
+        let labels: [ShortcutAction: String] = [.openMenu: "Menu", .showHistory: "History", .switchCopyMode: "Mode"]
+        let parts = ShortcutAction.allCases.compactMap { action in
+            ShortcutSettings.combo(for: action).map { "\($0.displayString) \(labels[action] ?? action.title)" }
+        }
+        setHint(shortcutsHintItem, parts.joined(separator: "  ·  "))
+
+        let modeCombo = ShortcutSettings.combo(for: .switchCopyMode)
+        setHint(modeShortcutHintItem, modeCombo.map { "Switch with \($0.displayString)" } ?? "")
+        modeShortcutHintItem.menu?.items.last { $0.isSeparatorItem }?.isHidden = modeCombo == nil
+    }
+
+    private func setHint(_ item: NSMenuItem, _ text: String) {
+        item.attributedTitle = NSAttributedString(string: text, attributes: [
+            .font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize),
+            .foregroundColor: NSColor.secondaryLabelColor,
+        ])
+        item.isHidden = text.isEmpty
     }
 
     func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) {
@@ -253,6 +283,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 historyMenu.addItem(showFull)
             }
             historyMenu.addItem(hintItem("Hold ⌥ Option to show full text"))
+        }
+        if let combo = ShortcutSettings.combo(for: .showHistory) {
+            historyMenu.addItem(hintItem("Open with \(combo.displayString)"))
         }
 
         historyMenu.addItem(.separator())

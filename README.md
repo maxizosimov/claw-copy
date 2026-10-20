@@ -21,7 +21,8 @@ A tiny macOS menu bar app: **select text anywhere and it's already copied.** No 
 - **Keyboard shortcuts:** **⌃⌥⌘C** opens the Claw Copy menu, **⌃⌥⌘V** shows Clipboard History at
   the pointer (then ↑ ↓ or 1–9, and Return), **⌃⌥⌘M** switches Copy Mode. Change or remove them in
   menu bar → **Keyboard Shortcuts…**: click a shortcut and press the new keys (⌫ removes it,
-  ⎋ cancels, **Reset to Defaults** restores them).
+  ⎋ cancels, **Reset to Defaults** restores them). The current shortcuts are always shown in the
+  menu, right under the status line.
 - Lives in the menu bar (clipboard icon). It has no Dock icon, and no windows except the history viewer.
 - Fully offline, with zero dependencies (see [Security](#security)).
 
@@ -228,6 +229,9 @@ swift test                      # unit tests for the core logic
 - [ ] Quit and reopen → the chosen Copy Mode is remembered.
 - [ ] ⌃⌥⌘C opens the menu; ⌃⌥⌘V shows Clipboard History at the pointer → ↓ and Return restores an
       entry, and the app you were in is still in front for pasting; ⌃⌥⌘M switches Copy Mode (icon changes).
+- [ ] The menu shows "⌃⌥⌘C Menu · ⌃⌥⌘V History · ⌃⌥⌘M Mode" under the status line; Copy Mode
+      shows "Switch with ⌃⌥⌘M" and Clipboard History "Open with ⌃⌥⌘V". After changing a
+      shortcut, all of them show the new one.
 - [ ] Keyboard Shortcuts… → click Show Clipboard History → press ⌥⇧H → the shortcut changes and works.
       Pressing ⌘Q or a plain letter shows a message instead. ⌫ sets it to None; Reset to Defaults restores it.
 - [ ] Menu bar icon → Quit works.
