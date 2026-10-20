@@ -49,6 +49,12 @@ if grep -rnE 'FileManager|FileHandle|\.write\(to|\.write\(toFile|writeToFile|wri
   fail "file-writing or persistence API found above (clipboard history must stay in memory)"
 fi
 
+# HTML is only ever parsed by ClawCopyCore's own converter. AppKit's HTML import runs WebKit,
+# which can load remote resources, so it must never be used.
+if grep -rnE 'DocumentType\.html|documentType: *\.html|NSHTMLTextDocumentType|NSAttributedString\(html|initWithHTML|readFromHTML' Sources; then
+  fail "HTML import API found above (use HTMLToMarkdown)"
+fi
+
 # Zero third-party dependencies.
 if grep -nE '\.package\(' Package.swift; then
   fail "third-party package dependency found"

@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var permissionsMenuItem: NSMenuItem?
     private var openAtLoginMenuItem: NSMenuItem?
     private let historyMenu = NSMenu()
+    private let modeMenu = NSMenu()
     private let historyViewer = HistoryTextViewer()
     private let historyPreview = HistoryPreviewPanel()
     private var permissionTask: Task<Void, Never>?
@@ -20,6 +21,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         LoginItem.applyDefaultOnFirstLaunch()
         setUpMainMenu()
         setUpStatusItem()
+        historyController.shouldPause = { [weak self] in
+            self?.controller.isConvertingClipboard ?? false
+        }
         historyController.start()
 
         mouseMonitor.onSelectionGesture = { [weak self] in
@@ -64,10 +68,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func setUpStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let button = item.button {
-            button.image = NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: "Claw Copy")
-            button.image?.isTemplate = true
-        }
 
         let menu = NSMenu()
         let status = NSMenuItem(title: "", action: nil, keyEquivalent: "")
@@ -83,6 +83,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(permissions)
 
         menu.addItem(.separator())
+        for mode in CopyMode.allCases {
+            let modeItem = NSMenuItem(title: mode.title, action: #selector(selectCopyMode(_:)), keyEquivalent: "")
+            modeItem.target = self
+            modeItem.representedObject = mode.rawValue
+            modeMenu.addItem(modeItem)
+        }
+        let copyMode = NSMenuItem(title: "Copy Mode", action: nil, keyEquivalent: "")
+        copyMode.submenu = modeMenu
+        menu.addItem(copyMode)
+
         let history = NSMenuItem(title: "Clipboard History", action: nil, keyEquivalent: "")
         history.submenu = historyMenu
         historyMenu.delegate = self
@@ -105,6 +115,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         permissionsMenuItem = permissions
         openAtLoginMenuItem = openAtLogin
         refreshOpenAtLogin()
+        refreshCopyMode()
+    }
+
+    // MARK: - Copy mode
+
+    @objc private func selectCopyMode(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let mode = CopyMode(rawValue: raw) else { return }
+        controller.mode = mode
+        refreshCopyMode()
+    }
+
+    /// Checkmarks the active mode and shows it in the menu bar icon (# for Markdown).
+    private func refreshCopyMode() {
+        let mode = controller.mode
+        for item in modeMenu.items {
+            item.state = (item.representedObject as? String) == mode.rawValue ? .on : .off
+        }
+        let symbol = mode == .markdown ? "number.square" : "doc.on.clipboard"
+        let description = "Claw Copy (\(mode.title))"
+        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: description)
+            ?? NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: description)
+        image?.isTemplate = true
+        statusItem?.button?.image = image
+        statusItem?.button?.toolTip = description
+        refreshStatus()
     }
 
     func menuWillOpen(_ menu: NSMenu) {
@@ -245,7 +280,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func refreshStatus() {
         let trusted = Permissions.isTrusted(prompt: false)
         statusMenuItem?.title = trusted
-            ? "Copy on select is active"
+            ? "Copy on select is active · \(controller.mode.title)"
             : "Waiting for Accessibility permission"
         permissionsMenuItem?.isHidden = trusted
         if trusted {

@@ -4,8 +4,14 @@ import ClawCopyCore
 /// Glues mouse gestures, the Accessibility reader, the copy policies and the pasteboard.
 @MainActor
 final class CopyOnSelectController {
+    private static let modeKey = "copyMode"
+
     var copyPolicy = CopyPolicy()
     var fallbackPolicy = KeystrokeFallbackPolicy()
+
+    /// True while a Markdown conversion is waiting for, or rewriting, the app's copy. Clipboard
+    /// history pauses meanwhile so it records only the final Markdown.
+    private(set) var isConvertingClipboard = false
 
     private let reader = SelectionReader()
     private let pasteboard = PasteboardWriter()
@@ -14,17 +20,22 @@ final class CopyOnSelectController {
     /// Give the target app a moment to finish updating its selection after mouse-up.
     private let settleDelayNanoseconds: UInt64 = 60_000_000
 
+    var mode: CopyMode {
+        get { CopyMode(rawValue: UserDefaults.standard.string(forKey: Self.modeKey) ?? "") ?? .plainText }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: Self.modeKey) }
+    }
+
     func selectionGestureEnded() {
         pending?.cancel()
         let delay = settleDelayNanoseconds
         pending = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: delay)
             guard !Task.isCancelled else { return }
-            self?.captureSelection()
+            await self?.captureSelection()
         }
     }
 
-    private func captureSelection() {
+    private func captureSelection() async {
         guard Permissions.isTrusted(prompt: false) else { return }
 
         let snapshot = reader.read()
@@ -36,17 +47,46 @@ final class CopyOnSelectController {
             isSecureField: snapshot.isSecureField,
             currentClipboard: pasteboard.currentString()
         )
+        let mode = self.mode
+        let action = CapturePlanner.plan(
+            decision: decision,
+            mode: mode,
+            fallbackAllowed: fallbackPolicy.allowsFallback(focusedRole: snapshot.role, sourceBundleID: snapshot.bundleID)
+        )
 
-        switch decision {
-        case .copy(let text):
+        switch action {
+        case .none:
+            break
+        case .writePlain(let text):
             pasteboard.write(text)
-        case .skip(.empty):
-            // The app may simply not expose its selection via Accessibility (e.g. browsers).
-            if fallbackPolicy.allowsFallback(focusedRole: snapshot.role, sourceBundleID: snapshot.bundleID) {
+        case .sendCopyKeystroke:
+            if mode == .markdown {
+                await copyAsMarkdown()
+            } else {
                 KeystrokeCopier.sendCopy()
             }
-        case .skip:
-            break
         }
+    }
+
+    /// Sends Cmd+C, waits for the app's copy, and replaces its HTML with Markdown. If the app
+    /// copied no HTML (or it can't be converted), its copy is left exactly as it is.
+    private func copyAsMarkdown() async {
+        isConvertingClipboard = true
+        defer { isConvertingClipboard = false }
+
+        let before = pasteboard.changeCount
+        KeystrokeCopier.sendCopy()
+        for _ in 0..<30 where pasteboard.changeCount == before {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        guard pasteboard.changeCount != before else { return }
+        // The app clears the pasteboard first and then writes its types; let it finish.
+        try? await Task.sleep(nanoseconds: 30_000_000)
+
+        // Never touch concealed/transient copies (password managers).
+        guard !pasteboard.types.contains(where: ClipboardRecordPolicy.privateTypes.contains),
+              let html = pasteboard.currentHTML(),
+              let markdown = HTMLToMarkdown.convert(html) else { return }
+        pasteboard.writeMarkdown(markdown)
     }
 }
